@@ -111,7 +111,8 @@ double g_DosageCutoff_for_UltraRarePresence;
 double g_dosage_zerod_MAC_cutoff;
 double g_dosage_zerod_cutoff;
 bool g_markerTestEnd = false;
-arma::vec g_weights_beta(2);
+
+//arma::vec g_weights_beta(2);
 
 bool  g_is_Firth_beta;
 double g_pCutoffforFirth;
@@ -147,10 +148,10 @@ void setAssocTest_GlobalVarsInCPP(std::string t_impute_method,
                                double t_min_info_marker,
 			       double t_dosage_zerod_cutoff,
                                double t_dosage_zerod_MAC_cutoff,
-			       arma::vec & t_weights_beta, 
 			       std::string t_outputFilePrefix,
 			       double t_MACCutoffforER)
 {
+			       //arma::vec & t_weights_beta,
   g_impute_method = t_impute_method;
   g_missingRate_cutoff = t_missing_cutoff;
   g_marker_minMAF_cutoff = t_min_maf_marker;
@@ -158,7 +159,7 @@ void setAssocTest_GlobalVarsInCPP(std::string t_impute_method,
   g_marker_minINFO_cutoff = t_min_info_marker;
   g_dosage_zerod_cutoff = t_dosage_zerod_cutoff;
   g_dosage_zerod_MAC_cutoff = t_dosage_zerod_MAC_cutoff;
-  g_weights_beta = t_weights_beta;
+  //g_weights_beta = t_weights_beta;
   g_outputFilePrefixGroup = t_outputFilePrefix;
   g_outputFilePrefixSingleInGroup = t_outputFilePrefix + ".singleAssoc.txt";
   g_outputFilePrefixSingleInGroup_temp = t_outputFilePrefix + ".singleAssoc.txt_temp";
@@ -1004,16 +1005,16 @@ void setSparseSigmaInCPP(int r, arma::umat & t_locationMatinR, arma::vec & t_val
 Rcpp::List RegionSetUpConditional_binary_InCPP(arma::vec & t_weight_cond){
 
 	unsigned int q_cond = (ptr_gSAIGEobj->m_VarInvMat_cond).n_rows;
-  	boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
+	//boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
   	arma::vec w0G2Vec_cond(q_cond);
   	double w0G2_cond, MAFG2_cond;
         for(unsigned int ci = 0; ci < q_cond; ci++){
-		if(!(t_weight_cond.is_zero())){
+		//if(!(t_weight_cond.is_zero())){
 			w0G2_cond = t_weight_cond(ci);
-		}else{
-                	MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];
-                	w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
-		}
+		//}else{
+                //	MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];
+                //	w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
+		//}
                 w0G2Vec_cond.at(ci) = w0G2_cond;
         }
 	arma::mat m_VarMat_weighted_cond = (w0G2Vec_cond * (w0G2Vec_cond.t())) % (ptr_gSAIGEobj->m_VarMat_cond);
@@ -1036,6 +1037,7 @@ Rcpp::List mainRegionInCPP(
                            std::vector<std::string> & t_genoIndex_prev,
                            std::vector<std::string> & t_genoIndex,
 			   arma::mat & annoIndicatorMat,
+			   std::vector<std::string> & t_weightlistvec,
 			   arma::vec & maxMAFVec, 
                            std::string t_outputFile,
 			   std::string t_traitType,
@@ -1044,8 +1046,10 @@ Rcpp::List mainRegionInCPP(
                            arma::mat & P2Mat, 
 			   std::string t_regionTestType, 
 			   bool t_isImputation,
-			   arma::vec & t_weight,
+                           arma::mat & t_Beta_param,            // edited on 2021-08-19: to avoid repeated memory allocation of P1Mat and P2Mat
+			   arma::mat & t_weight,
 			   arma::vec & t_weight_cond,
+			   bool t_isIncludeNoWeights,
 			   bool t_isSingleinGroupTest,
 			   bool t_isOutputMarkerList, 
 			   std::vector<std::string> & annoStringVec,
@@ -1061,18 +1065,28 @@ Rcpp::List mainRegionInCPP(
   bool isWeightCustomized = false;
   bool isEqualWeights = false;
   unsigned int q0 = t_genoIndex.size();                 // number of markers (before QC) in one region
-  if(!(t_weight.is_zero()) && t_weight.n_elem == q0){
+  unsigned int q_weight_customize = 0; 
+  if(!(t_weight.is_zero()) && t_weight.n_rows == q0){
      isWeightCustomized = true;	
+     q_weight_customize = t_weight.n_cols;
      bool all_ones = arma::all(t_weight == 1.0);
      if(all_ones){
-	isEqualWeights = true;
+      isEqualWeights = true;
      }
   }
 
   unsigned int q_anno = annoIndicatorMat.n_cols;
   unsigned int q_maf = maxMAFVec.n_elem;
+  unsigned int q_weight = q_weight_customize + q_weight_beta;
+  if(t_isIncludeNoWeights){
+    q_weight = q_weight + 1;
+  }
+  arma::vec w0_vec(q_weight);
+
+
   unsigned int q_anno_maf = q_anno*q_maf;
-  arma::mat genoURMat(t_n, q_anno_maf, arma::fill::zeros);
+  unsigned int q_anno_maf_weight = q_anno*q_maf*q_weight;
+  arma::mat genoURMat(t_n, q_anno_maf_weight, arma::fill::zeros);
   arma::mat genoURMat_noweights(t_n, q_anno_maf, arma::fill::zeros);
   unsigned int q = q0 + q_anno_maf;
   arma::imat annoMAFIndicatorMat(q, q_anno_maf, arma::fill::zeros);
@@ -1086,26 +1100,26 @@ Rcpp::List mainRegionInCPP(
   //setting up conditional markers  
   unsigned int q_cond = (ptr_gSAIGEobj->m_VarInvMat_cond).n_rows;	
   arma::rowvec G1tilde_P_G2tilde_Vec(q_cond);
-  boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
+  //boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
 
   bool isCondition = ptr_gSAIGEobj->m_isCondition;
   arma::vec w0G2Vec_cond(q_cond);
   double w0G2_cond, MAFG2_cond;
   if(isCondition){
 	for(unsigned int ci = 0; ci < q_cond; ci++){
-		if(!(t_weight_cond.is_zero())){
+		//if(!(t_weight_cond.is_zero())){
 			w0G2_cond = t_weight_cond(ci);
-		}else{	
-			MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];	
-  			w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
-		}	
+		//}else{
+		//	MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];
+		//	w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
+		//}
 		w0G2Vec_cond.at(ci) = w0G2_cond;
 	}
   }
   arma::mat w0G2Mat_cond(q_cond, q_cond);
   w0G2Mat_cond = w0G2Vec_cond * (w0G2Vec_cond.t());
-  arma::mat genoSumMat(t_n, q_anno_maf, arma::fill::zeros); //for Phi_cc for binary traits and BURDEN test
-  arma::vec genoSumcount_noweight(q_anno_maf, arma::fill::zeros);
+  arma::mat genoSumMat(t_n, q_anno_maf_weight, arma::fill::zeros); //for Phi_cc for binary traits and BURDEN test
+  arma::vec genoSumcount_noweight(q_anno_maf_weight, arma::fill::zeros);
   //arma::sp_mat genoSumMat_sp(t_n, q_anno_maf); //for Phi_cc for binary traits and BURDEN test
   std::vector<double> Beta_cVec(q, arma::datum::nan);         // beta value for ALT allele
   std::vector<double> seBeta_cVec(q, arma::datum::nan);
@@ -1118,15 +1132,15 @@ Rcpp::List mainRegionInCPP(
   arma::mat G1tilde_P_G2tilde_Weighted_Mat(q, q_cond);
   //group test output
   //arma::vec MAC_GroupVec = arma::zeros<vec>(q_anno_maf);
-  arma::vec MAC_GroupVec(q_anno_maf);
+  arma::vec MAC_GroupVec(q_anno_maf_weight);
   MAC_GroupVec.zeros();
-  arma::vec MACCase_GroupVec(q_anno_maf);
+  arma::vec MACCase_GroupVec(q_anno_maf_weight);
   MACCase_GroupVec.zeros();
-  arma::vec MACControl_GroupVec(q_anno_maf);
+  arma::vec MACControl_GroupVec(q_anno_maf_weight);
   MACControl_GroupVec.zeros();
-  arma::vec NumRare_GroupVec(q_anno_maf);
+  arma::vec NumRare_GroupVec(q_anno_maf_weight);
   NumRare_GroupVec.zeros();
-  arma::vec NumUltraRare_GroupVec(q_anno_maf);
+  arma::vec NumUltraRare_GroupVec(q_anno_maf_weight);
   NumUltraRare_GroupVec.zeros();
   arma::vec gtildeVec;
   double MACgroup, MACcasegroup, MACcontrolgroup, AF_case, AF_ctrl, N_case_hom, N_ctrl_het, N_case_het, N_ctrl_hom;
@@ -1205,7 +1219,7 @@ Rcpp::List mainRegionInCPP(
   unsigned int i1InChunk = 0; //i1th marker in ith chunk
   unsigned int i1 = 0;    // index of Markers (non-URV)
   unsigned int i2 = 0;    // index of Markers (Ultra-Rare Variants, URV)
-  unsigned int jm; 
+  unsigned int jm, jmr;
 
   double cctpval;
   double cctpval_cond;
@@ -1287,13 +1301,24 @@ Rcpp::List mainRegionInCPP(
     //printTime(timeoutput2a, timeoutput3a, "Unified_getOneMarker 2");
    if((missingRate > g_missingRate_cutoff) || (MAF > g_maxMAFLimit) || (MAF < g_marker_minMAF_cutoff) || (MAC < g_marker_minMAC_cutoff) || (imputeInfo < g_marker_minINFO_cutoff)){
       continue;
-   }else{ 
+   }else{
+      for(unsigned int w = 0; w < q_weight_customize; w++){
+        w0_vec(w) = t_weight(i,w); 
+      }
+        for(unsigned int w = 0; w < q_weight_beta; w++){
+          boost::math::beta_distribution<> beta_dist(t_Beta_param(w,0), t_Beta_param(w,1));
+          w0_vec(w+q_weight_customize) = boost::math::pdf(beta_dist, MAF);;
+      }
+      
+      if(t_isIncludeNoWeights){
+        w0_vec(q_weight_customize+q_weight_customize) = 1;
+      }
 
-    if(isWeightCustomized){
-        w0 = t_weight(i);
-    }else{
-        w0 = boost::math::pdf(beta_dist, MAF);
-    }
+    // if(isWeightCustomized){
+    //     w0 = t_weight(i);
+    // }else{
+    //     w0 = boost::math::pdf(beta_dist, MAF);
+    // }
 
     indexNonZeroVec_arma = arma::conv_to<arma::uvec>::from(indexNonZeroVec);
     uint nNonZero = indexNonZeroVec_arma.n_elem;
@@ -1387,7 +1412,8 @@ Rcpp::List mainRegionInCPP(
 		for(unsigned int m = 0; m < q_maf; m++){
 			if(MAFIndicatorVec(m) == 1){
   				//arma::vec timeoutput3ab0 = getTime();
-				jm = j*q_maf + m;	
+				std::cout << "q_maf " << q_maf << std::endl;
+        jm = j*q_maf + m;	
 				annoMAFIndicatorVec(jm) = 1;
 				MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
 
@@ -1396,17 +1422,21 @@ Rcpp::List mainRegionInCPP(
 					MACControl_GroupVec(jm) = MACControl_GroupVec(jm) + MACcontrolgroup;
 					//genoSumMat.col(jm) = genoSumMat.col(jm) + w0*GVec;
 				}
-				for(unsigned int k = 0; k < nNonZero; k++){	
-					genoSumMat(indexNonZeroVec_arma(k), jm) = genoSumMat(indexNonZeroVec_arma(k), jm) + w0*GVec(indexNonZeroVec_arma(k));
+        
+        for(unsigned int r = 0; r < q_weight; r++){
+          jmr = j*q_maf*q_weight + m*q_weight + r;
+          w0 = w0_vec(r);
+          for(unsigned int k = 0; k < nNonZero; k++){
+            genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + GVec(indexNonZeroVec_arma(k));
+            genoSumMat(indexNonZeroVec_arma(k), jmr) = genoSumMat(indexNonZeroVec_arma(k), jmr) + w0*GVec(indexNonZeroVec_arma(k));
 
-					genoSumcount_noweight(jm) = genoSumcount_noweight(jm) + GVec(indexNonZeroVec_arma(k));
 				}
+        NumRare_GroupVec(jmr) = NumRare_GroupVec(jmr) + 1;		
+      }
 	
   //arma::vec timeoutput3ab2 = getTime();
    //      printTime(timeoutput3ab1, timeoutput3ab2, "Unified_getOneMarker 3b2");
-				NumRare_GroupVec(jm) = NumRare_GroupVec(jm) + 1;
 			}
-
 		}	
         }
       }
@@ -1465,16 +1495,20 @@ Rcpp::List mainRegionInCPP(
                         if(MAFIndicatorVec(m) == 1){
                         	jm = j*q_maf + m;
 				annoMAFIndicatorVec(jm) = 2;
-				if(!isWeightCustomized){
-				  for(unsigned int k = 0; k < nNonZero; k++){
-					genoURMat(indexNonZeroVec_arma(k), jm) = std::max(genoURMat(indexNonZeroVec_arma(k), jm), GVec(indexNonZeroVec_arma(k)));
-				  }
+        for(unsigned int r = 0; r < q_weight; r++){
+          jmr = j*q_maf*q_weight + m*q_weight + r;
+          w0 = w0_vec(r);
+          if(q_weight_beta > 0 && r >= q_weight_customize){
+            w0 = 1;
+          }
+				// if(!isWeightCustomized){
+				//   for(unsigned int k = 0; k < nNonZero; k++){
+				// 	genoURMat(indexNonZeroVec_arma(k), jm) = std::max(genoURMat(indexNonZeroVec_arma(k), jm), GVec(indexNonZeroVec_arma(k)));
+				//   }
 					//genoURMat.col(jm) = arma::max(genoURMat.col(jm), GVec);
-				}else{
-
-                                  for(unsigned int k = 0; k < nNonZero; k++){
-					genoURMat(indexNonZeroVec_arma(k), jm) = std::max(genoURMat(indexNonZeroVec_arma(k), jm) , t_weight(i) * (GVec(indexNonZeroVec_arma(k))));
-					genoURMat_noweights(indexNonZeroVec_arma(k), jm) = std::max(genoURMat_noweights(indexNonZeroVec_arma(k), jm) , (GVec(indexNonZeroVec_arma(k))));
+				// }else{
+        for(unsigned int k = 0; k < nNonZero; k++){
+          genoURMat(indexNonZeroVec_arma(k), jmr) = std::max(genoURMat(indexNonZeroVec_arma(k), jmr) , w0 * (t_GVec0(indexNonZeroVec_arma(k))));
 					//weightURMat_cnt(indexNonZeroVec_arma(k), jm) = weightURMat_cnt(indexNonZeroVec_arma(k), jm) + 1;
 				  }
 				}	
@@ -1547,14 +1581,15 @@ if(i2 > 0){
   for(unsigned int j = 0; j < q_anno; j++){
      for(unsigned int m = 0; m < q_maf; m++){
 	jm = j*q_maf+m;
-	arma::vec genoURVec = genoURMat.col(jm);
-	arma::vec genoURVec_noweights = genoURMat_noweights.col(jm);
+   for(unsigned int r = 0; r < q_weight; r++){
+  jmr = j*q_maf*q_weight + m*q_weight + r;
+  arma::vec genoURVec = genoURMat.col(jmr);
 	int n = genoURVec.size();
-	arma::uvec indexForNonZero = arma::find(genoURVec != 0);
+  // arma::vec s = genoURMat_noweights.col(jm);  // Not sure tthis one ?
+	arma::uvec indexForNonZero = arma::find(genoURVec != 0); 
 	i = q0 + jm;
 	markerVec.at(i) = "UR";             // marker IDs
 	if(indexForNonZero.n_elem > 0){
-	//URindVec.push_back(jm+1);
 	  double altFreq = arma::mean(genoURVec)/2;
 	  double altCounts = arma::accu(genoURVec);
 	  double missingRate = 0;
@@ -1563,37 +1598,23 @@ if(i2 > 0){
     	  bool flip = false;
 	  std::string info = "UR";	
     	  double MAF = std::min(altFreq, 1 - altFreq);
-	  double w0;
+	  double w0 = w0_vec(r);
 	  double MAC = MAF * 2 * t_n * (1 - missingRate);
 	  std::vector<uint32_t> indexForMissing;
     	  flip = imputeGenoAndFlip(genoURVec, altFreq, altCounts, indexForMissing, g_impute_method, g_dosage_zerod_cutoff, g_dosage_zerod_MAC_cutoff, MAC, indexZeroVec, indexNonZeroVec);
-	  if(isWeightCustomized){
-	    //genoSumMat.col(jm) = genoSumMat.col(jm) + genoURVec % (weightURMat.col(jm));
-	    //genoSumMat.col(jm) = genoSumMat.col(jm) + genoURVec;
-	      for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
-                genoSumMat(indexForNonZero(k), jm) = genoSumMat(indexForNonZero(k), jm) + genoURVec(indexForNonZero(k));
-	 	genoSumcount_noweight(jm) = genoSumcount_noweight(jm) + genoURVec_noweights(indexForNonZero(k));
-	      }
-    	  }else{
-                w0 = boost::math::pdf(beta_dist, MAF);
-	        for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
-                genoSumMat(indexForNonZero(k), jm) = genoSumMat(indexForNonZero(k), jm) + genoURVec(indexForNonZero(k)) * w0;
-	 	genoSumcount_noweight(jm) = genoSumcount_noweight(jm) + genoURVec(indexForNonZero(k));
-	      }
-    	  }
-
-	 //genoSumMat.col(1).print("genoSumMat.col(1)");
-
-
+        for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
+          genoSumMat(indexForNonZero(k), jmr) = genoSumMat(indexForNonZero(k), jmr) + genoURVec(indexForNonZero(k)) * w0;\
+          genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + genoURVec(indexForNonZero(k));
+          }
   	 if(t_regionTestType != "BURDEN"){
-	    arma::vec genoSumMatvec1 = genoSumMat.col(jm);
+      arma::vec genoSumMatvec1 = genoSumMat.col(jmr);
 	    arma::vec genoSumMatvec2 = XV * genoSumMatvec1;
 	    arma::vec genoSumMatvec3 = genoSumMatvec1 - XXVX_inv * genoSumMatvec2;
-	    genoSumMat.col(jm) = genoSumMatvec3;
           }
+      genoSumMat.col(jmr) = genoSumMatvec3;
+        }//if(t_regionTestType != "BURDEN"){
 
 	  MAC = MAF * 2 * t_n * (1 - missingRate);   // checked on 08-10-2021
-if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
 
       if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
         ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
@@ -1602,16 +1623,14 @@ if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
       }
 
       if(!isSingleVarianceRatio){
-        hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
+        hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
       }else{
-        ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
+        ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
       }
-
-
-
+if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
 
 	    annoMAFIndicatorVec.zeros();
-	    annoMAFIndicatorVec(jm) = 1;
+	    annoMAFIndicatorVec(jmr) = 1;
 	    annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
     	    infoVec.at(i) = info;                 // marker information: CHR:POS:REF:ALT
     	    altFreqVec.at(i) = altFreq;	// allele frequencies of ALT allele, this is not always < 0.5.
@@ -1661,14 +1680,14 @@ if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
 	    str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
     	    markerVec.at(i) = regionName + ":" + annoStringVec.at(j) + ":" + str ;
             arma::vec dosage_case, dosage_ctrl;
-            MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
+            MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
             if(t_traitType == "binary" || t_traitType == "survival"){
                         dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
                         dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
                         MACcasegroup = arma::accu(dosage_case);
                         MACcontrolgroup = arma::accu(dosage_ctrl);
-                        MACCase_GroupVec(jm) = MACCase_GroupVec(jm) + MACcasegroup;
-                        MACControl_GroupVec(jm) = MACControl_GroupVec(jm) + MACcontrolgroup;
+                        MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
+                        MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
             }
 
           if(t_traitType == "binary" || t_traitType == "survival"){
@@ -1682,26 +1701,25 @@ if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
           AF_ctrlVec.at(i) = AF_ctrl;
           N_caseVec.at(i) = dosage_case.n_elem;
           N_ctrlVec.at(i) = dosage_ctrl.n_elem;
-
-         arma::uvec N_case_ctrl_het_hom0;
-        if(t_isMoreOutput){
-          N_case_ctrl_het_hom0 = arma::find(dosage_case <= 2 && dosage_case >=1.5);
-          N_case_homVec.at(i)  = N_case_ctrl_het_hom0.n_elem;
-          N_case_ctrl_het_hom0 = arma::find(dosage_case < 1.5 && dosage_case >= 0.5);
-          N_case_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-          N_case_ctrl_het_hom0 = arma::find(dosage_ctrl <= 2 && dosage_ctrl >=1.5);
-          N_ctrl_homVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-          N_case_ctrl_het_hom0 = arma::find(dosage_ctrl < 1.5 && dosage_ctrl >= 0.5);
-          N_ctrl_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-          if(flip){
-                N_case_homVec.at(i) = N_case - N_case_hetVec.at(i) -  N_case_homVec.at(i);
-                N_ctrl_homVec.at(i) = N_ctrl - N_ctrl_hetVec.at(i) - N_ctrl_homVec.at(i);
-          }
-        }
-
-        }else if(t_traitType == "quantitative"){
+          arma::uvec N_case_ctrl_het_hom0;
+          if(t_isMoreOutput){
+            N_case_ctrl_het_hom0 = arma::find(dosage_case <= 2 && dosage_case >=1.5);
+            N_case_homVec.at(i)  = N_case_ctrl_het_hom0.n_elem;
+            N_case_ctrl_het_hom0 = arma::find(dosage_case < 1.5 && dosage_case >= 0.5);
+            N_case_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+            N_case_ctrl_het_hom0 = arma::find(dosage_ctrl <= 2 && dosage_ctrl >=1.5);
+            N_ctrl_homVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+            N_case_ctrl_het_hom0 = arma::find(dosage_ctrl < 1.5 && dosage_ctrl >= 0.5);
+            N_ctrl_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+            if(flip){
+              N_case_homVec.at(i) = N_case - N_case_hetVec.at(i) -  N_case_homVec.at(i);
+              N_ctrl_homVec.at(i) = N_ctrl - N_ctrl_hetVec.at(i) - N_ctrl_homVec.at(i);
+              }
+            }//if(t_isMoreOutput){
+ 
+         }else if(t_traitType == "quantitative" || t_traitType == "count"){
           N_Vec.at(i) = n;
-        }
+         }
       if(t_regionTestType != "BURDEN"){	
         P1Mat.row(i1InChunk) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*gtildeVec.t();
 	//gtildeVec.print("gtildeVec");
@@ -1710,24 +1728,24 @@ if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
 
       } //if(t_regionTestType != "BURDEN"){
     }else{//if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){	
-            MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
+            MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
 	                arma::vec dosage_case, dosage_ctrl;
             if(t_traitType == "binary" || t_traitType == "survival"){
                         dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
                         dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
                         MACcasegroup = arma::accu(dosage_case);
                         MACcontrolgroup = arma::accu(dosage_ctrl);
-                        MACCase_GroupVec(jm) = MACCase_GroupVec(jm) + MACcasegroup;
-                        MACControl_GroupVec(jm) = MACControl_GroupVec(jm) + MACcontrolgroup;
+                        MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
+                        MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
             }
     }
-  
+    //}
     i1InChunk = i1InChunk + 1;
     i1 = i1 + 1;
     }
    }  
   }
-
+}
 
   if(i1InChunk != 0){
     nchunks = nchunks + 1;
@@ -1868,14 +1886,18 @@ if(t_regionTestType == "BURDEN"){
 	maxMAFName = maxMAFVec(m); 
 	jm = j*q_maf+m;
 	i = jm;
-      if(m <= q_maf_m){
-        arma::vec genoSumVec = genoSumMat.col(jm);
+       if(m <= q_maf_m){
+
+	  for(unsigned int r = 0; r < q_weight; r++){
+	          jmr = j*q_maf*q_weight + m*q_weight + r;
+
+        arma::vec genoSumVec = genoSumMat.col(jmr);
         int n = genoSumVec.size();
         arma::uvec indexNonZeroVec_arma = arma::find(genoSumVec != 0);
 	arma::uvec indexZeroVec_arma = arma::find(genoSumVec == 0);
         //double altFreq = arma::mean(genoSumVec)/2;
         //double altCounts = arma::accu(genoSumVec);
-	double altCounts =  genoSumcount_noweight(i);
+	double altCounts =  genoSumcount_noweight(jmr);
 	double altFreq = altCounts/(2*t_n);
 	double MAC, MAF;
 	if(altFreq > 1){
@@ -1939,9 +1961,10 @@ if(t_regionTestType == "BURDEN"){
 	   BURDEN_Beta_Vec.at(i) = Beta;
 	   BURDEN_seBeta_Vec.at(i) = seBeta;
 
-         }else{
+        }else{ //if(indexNonZeroVec_arma.n_elem > 0 && MAC >= g_min_gourpmac_for_burdenonly){
 	   isPolyMarker = false;	 
-	 }
+	}
+      }//for(unsigned int r = 0; r < q_weight; r++){
      }else{
 	if(isPolyMarker){
 	  if(isCondition){
@@ -1956,10 +1979,10 @@ if(t_regionTestType == "BURDEN"){
            BURDEN_Beta_Vec.at(i) = Beta;
            BURDEN_seBeta_Vec.at(i) = seBeta; 
 	 }
-     } 	     
-
+     }//else{ 
    }
  }
++//} 
 	  std::vector<double> nonMissingPvalVec_std, nonMissingPvalVec_c_std;
 	  double burden_p, burden_p_cond;
 	  for(unsigned int i = 0; i < BURDEN_pval_Vec.size(); i++){
@@ -2182,11 +2205,6 @@ OutList.push_back(iswriteOutput, "iswriteOutput");
 
 
 
-
-
-
-
-
 // [[Rcpp::export]]
 void assign_conditionMarkers_factors(
                            std::string t_genoType,     // "plink", "bgen", "vcf"
@@ -2209,13 +2227,7 @@ void assign_conditionMarkers_factors(
   arma::vec gyVec(q);
   arma::vec w0G2_cond_Vec(q);
   arma::vec gsumVec(t_n, arma::fill::zeros);
-  //double beta1 = g_weights_beta[0];
-  //double beta2 = g_weights_beta[1];  
-  boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
-  //boost::math::beta_distribution<> beta_dist(beta1, beta2);
-  //g_weights_beta.print();
-  //boost::math::beta_distribution<> beta_dist(1, 25);
-  //std::vector<double> GVec0(t_n);
+  //boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
   arma::vec GVec(t_n);
   std::string pval, pval_noSPA;
   double Beta, seBeta, Tstat, varT, gy, w0G2_cond;
@@ -2333,11 +2345,11 @@ void assign_conditionMarkers_factors(
       }	      
 
 
-     if(!t_weight_cond.is_zero()){
+     //if(!t_weight_cond.is_zero()){
 	 w0G2_cond = t_weight_cond(i);
-    }else{
-	 w0G2_cond = boost::math::pdf(beta_dist, MAF);
-    }
+    //}else{
+//	 w0G2_cond = boost::math::pdf(beta_dist, MAF);
+  //  }
      w0G2_cond_Vec(i) = w0G2_cond;
      gyVec(i) = gy * w0G2_cond;
      gsumVec = gsumVec + GVec * w0G2_cond;

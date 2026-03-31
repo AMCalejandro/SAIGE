@@ -12,9 +12,9 @@ void setAssocTest_GlobalVarsInCPP(std::string t_impute_method,
                                double t_min_info_marker,
                                double t_dosage_zerod_cutoff,
                                double t_dosage_zerod_MAC_cutoff,
-                               arma::vec & t_weights_beta,
-			       std::string t_outputFilePrefix);
-
+			       std::string t_outputFilePrefix,
+                               double t_MACCutoffforER);
+                        //        arma::vec & t_weights_beta,
 
 void setAssocTest_GlobalVarsInCPP_indexInModel_male(arma::uvec & t_indexInModel_male);
 
@@ -103,6 +103,7 @@ Rcpp::List mainRegionInCPP(
 			   std::vector<std::string> & t_genoIndex_prev,
                            std::vector<std::string> & t_genoIndex,
                            arma::mat & annoIndicatorMat,
+                           std::vector<std::string> & t_weightlistvec,
                            arma::vec & maxMAFVec,
                            std::string t_outputFile,
                            std::string t_traitType,
@@ -111,8 +112,10 @@ Rcpp::List mainRegionInCPP(
                            arma::mat P2Mat,
                            std::string t_regionTestType,
 			   bool t_isImputation,
-			   arma::vec & t_weight,
+			   arma::mat & t_Beta_param,
+                           arma::mat & t_weight,
 			   arma::vec & t_weight_cond,
+                           bool t_isIncludeNoWeights,
 			   bool t_isSingleinGroupTest,
 			   bool t_isOutputMarkerList,
 			   std::vector<std::string> & annoStringVec,

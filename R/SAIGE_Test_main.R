@@ -98,7 +98,7 @@ SPAGMMATtest = function(bgenFile = "",
                  sparseGRMSampleIDFile="",
 		 relatednessCutoff = 0, 
                  groupFile="",
-                 weights.beta=c(1,25),
+                 weights.beta=c("1,25"),
                  weights_for_condition = NULL,
                  r.corr=0,
                  dosage_zerod_cutoff = 0.2,
@@ -176,10 +176,9 @@ SPAGMMATtest = function(bgenFile = "",
                             min_Info,
 			dosage_zerod_cutoff,
                         dosage_zerod_MAC_cutoff,
-			weights.beta, 
 			OutputFile,
-			max_MAC_use_ER)	
-   
+			max_MAC_use_ER)
+
     #time_2 = proc.time()
 
     if(groupFile == ""){
@@ -554,6 +553,20 @@ SPAGMMATtest = function(bgenFile = "",
 
 		}
 	}
+  
+  BetaDist_weight_mat = matrix(c(0, 0), ncol=2)
+  
+  if(!is.null(weights.beta)){
+    BetaDist_weight_mat = NULL
+    for(i in 1:length(weights.beta)){
+      weightsbeta_val_vec = as.numeric(unlist(strsplit(weights.beta[i], split=",")))
+      if(length(weightsbeta_val_vec) == 2){
+        BetaDist_weight_mat = rbind(BetaDist_weight_mat, weightsbeta_val_vec)
+      }else{
+        stop("The ", i, "th element in weights.beta does not have 2 elements\n")
+      }
+    }
+  }
 	
 	SAIGE.Region(mu,
 		     OutputFile,
@@ -573,6 +586,7 @@ SPAGMMATtest = function(bgenFile = "",
 		     r.corr,
 		     is_overwrite_output,
 		     is_single_in_groupTest,
+		     BetaDist_weight_mat,
 		     is_no_weight_in_groupTest,
 		     is_output_markerList_in_groupTest,
 		     chrom,
