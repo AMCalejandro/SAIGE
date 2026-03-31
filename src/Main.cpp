@@ -150,8 +150,8 @@ void setAssocTest_GlobalVarsInCPP(std::string t_impute_method,
                                double t_dosage_zerod_MAC_cutoff,
 			       std::string t_outputFilePrefix,
 			       double t_MACCutoffforER)
+             //arma::vec & t_weights_beta,
 {
-			       //arma::vec & t_weights_beta,
   g_impute_method = t_impute_method;
   g_missingRate_cutoff = t_missing_cutoff;
   g_marker_minMAF_cutoff = t_min_maf_marker;
@@ -1008,25 +1008,25 @@ Rcpp::List RegionSetUpConditional_binary_InCPP(arma::vec & t_weight_cond){
 	//boost::math::beta_distribution<> beta_dist(g_weights_beta[0], g_weights_beta[1]);
   	arma::vec w0G2Vec_cond(q_cond);
   	double w0G2_cond, MAFG2_cond;
-        for(unsigned int ci = 0; ci < q_cond; ci++){
+    for(unsigned int ci = 0; ci < q_cond; ci++){
 		//if(!(t_weight_cond.is_zero())){
 			w0G2_cond = t_weight_cond(ci);
 		//}else{
                 //	MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];
                 //	w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
 		//}
-                w0G2Vec_cond.at(ci) = w0G2_cond;
-        }
-	arma::mat m_VarMat_weighted_cond = (w0G2Vec_cond * (w0G2Vec_cond.t())) % (ptr_gSAIGEobj->m_VarMat_cond);
+      w0G2Vec_cond.at(ci) = w0G2_cond;
+    }
+	  arma::mat m_VarMat_weighted_cond = (w0G2Vec_cond * (w0G2Vec_cond.t())) % (ptr_gSAIGEobj->m_VarMat_cond);
 
-	 Rcpp::List OutList = Rcpp::List::create(Rcpp::Named("VarMat_G2_cond") = m_VarMat_weighted_cond,
-                                          Rcpp::Named("Score_G2_cond") = ptr_gSAIGEobj->m_Tstat_cond,
-                                          Rcpp::Named("pval_G2_cond") = ptr_gSAIGEobj->m_p_cond,
-                                          Rcpp::Named("gsum_G2_cond") = ptr_gSAIGEobj->m_gsum_cond,
-                                          Rcpp::Named("qsum_G2_cond") = ptr_gSAIGEobj->m_qsum_cond
-					  );
+	  Rcpp::List OutList = Rcpp::List::create(
+      Rcpp::Named("VarMat_G2_cond") = m_VarMat_weighted_cond,
+      Rcpp::Named("Score_G2_cond") = ptr_gSAIGEobj->m_Tstat_cond,
+      Rcpp::Named("pval_G2_cond") = ptr_gSAIGEobj->m_p_cond,
+      Rcpp::Named("gsum_G2_cond") = ptr_gSAIGEobj->m_gsum_cond,
+      Rcpp::Named("qsum_G2_cond") = ptr_gSAIGEobj->m_qsum_cond
+		);
 	 return(OutList);
-
 }
 
 
@@ -1069,10 +1069,17 @@ Rcpp::List mainRegionInCPP(
   if(!(t_weight.is_zero()) && t_weight.n_rows == q0){
      isWeightCustomized = true;	
      q_weight_customize = t_weight.n_cols;
-     bool all_ones = arma::all(t_weight == 1.0);
+     bool all_ones = arma::all(arma::vectorise(t_weight) == 1.0); // CHECK
      if(all_ones){
       isEqualWeights = true;
      }
+  }
+
+  unsigned int q_weight_beta = 0;
+  bool is_Beta_weight = false;
+  if(!t_Beta_param.is_zero()){
+     	is_Beta_weight = true;
+	q_weight_beta = t_Beta_param.n_rows;
   }
 
   unsigned int q_anno = annoIndicatorMat.n_cols;
@@ -1106,15 +1113,15 @@ Rcpp::List mainRegionInCPP(
   arma::vec w0G2Vec_cond(q_cond);
   double w0G2_cond, MAFG2_cond;
   if(isCondition){
-	for(unsigned int ci = 0; ci < q_cond; ci++){
+    for(unsigned int ci = 0; ci < q_cond; ci++){
 		//if(!(t_weight_cond.is_zero())){
-			w0G2_cond = t_weight_cond(ci);
+      w0G2_cond = t_weight_cond(ci);
 		//}else{
 		//	MAFG2_cond = (ptr_gSAIGEobj->m_MAF_cond)[ci];
 		//	w0G2_cond = boost::math::pdf(beta_dist, MAFG2_cond);
 		//}
-		w0G2Vec_cond.at(ci) = w0G2_cond;
-	}
+		  w0G2Vec_cond.at(ci) = w0G2_cond;
+    }
   }
   arma::mat w0G2Mat_cond(q_cond, q_cond);
   w0G2Mat_cond = w0G2Vec_cond * (w0G2Vec_cond.t());
@@ -1305,8 +1312,8 @@ Rcpp::List mainRegionInCPP(
       for(unsigned int w = 0; w < q_weight_customize; w++){
         w0_vec(w) = t_weight(i,w); 
       }
-        for(unsigned int w = 0; w < q_weight_beta; w++){
-          boost::math::beta_distribution<> beta_dist(t_Beta_param(w,0), t_Beta_param(w,1));
+      for(unsigned int w = 0; w < q_weight_beta; w++){
+        boost::math::beta_distribution<> beta_dist(t_Beta_param(w,0), t_Beta_param(w,1));
           w0_vec(w+q_weight_customize) = boost::math::pdf(beta_dist, MAF);;
       }
       
@@ -1427,19 +1434,28 @@ Rcpp::List mainRegionInCPP(
           jmr = j*q_maf*q_weight + m*q_weight + r;
           w0 = w0_vec(r);
           for(unsigned int k = 0; k < nNonZero; k++){
+					  //std::cout << "genoSumMat.n_rows " << genoSumMat.n_rows << std::endl;
+					  //std::cout << "genoSumMat.n_cols " << genoSumMat.n_cols << std::endl;
+					  //indexNonZeroVec_arma0.print("indexNonZeroVec_arma0");
+				    //std::cout << "t_GVec0.n_elem " << t_GVec0.n_elem << std::endl;
+
+            //genoSumMat(indexNonZeroVec_arma(k), jm) = genoSumMat(indexNonZeroVec_arma(k), jm) + w0*t_GVec0(indexNonZeroVec_arma0(k));
+            //genoSumcount_noweight(jm) = genoSumcount_noweight(jm) + t_GVec0(indexNonZeroVec_arma0(k));
             genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + GVec(indexNonZeroVec_arma(k));
             genoSumMat(indexNonZeroVec_arma(k), jmr) = genoSumMat(indexNonZeroVec_arma(k), jmr) + w0*GVec(indexNonZeroVec_arma(k));
-
-				}
+            //std::cout << "genoSumcount_noweight.n_elem " << genoSumcount_noweight.n_elem << std::endl;
+          }
         NumRare_GroupVec(jmr) = NumRare_GroupVec(jmr) + 1;		
-      }
-	
+      } // for(unsigned int r = 0; r < q_weight; r++){
+      
+      
+      //std::cout << "jm " << jm << std::endl;
   //arma::vec timeoutput3ab2 = getTime();
    //      printTime(timeoutput3ab1, timeoutput3ab2, "Unified_getOneMarker 3b2");
 			}
 		}	
-        }
-      }
+    }
+  }
   //arma::vec timeoutput3ac = getTime();
    //    printTime(timeoutput3ab, timeoutput3ac, "Unified_getOneMarker 3c");
      annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
@@ -1508,7 +1524,7 @@ Rcpp::List mainRegionInCPP(
 					//genoURMat.col(jm) = arma::max(genoURMat.col(jm), GVec);
 				// }else{
         for(unsigned int k = 0; k < nNonZero; k++){
-          genoURMat(indexNonZeroVec_arma(k), jmr) = std::max(genoURMat(indexNonZeroVec_arma(k), jmr) , w0 * (t_GVec0(indexNonZeroVec_arma(k))));
+          genoURMat(indexNonZeroVec_arma(k), jmr) = std::max(genoURMat(indexNonZeroVec_arma(k), jmr) , w0 * (GVec(indexNonZeroVec_arma(k)))); // CHECK
 					//weightURMat_cnt(indexNonZeroVec_arma(k), jm) = weightURMat_cnt(indexNonZeroVec_arma(k), jm) + 1;
 				  }
 				}	
@@ -1585,9 +1601,9 @@ if(i2 > 0){
   jmr = j*q_maf*q_weight + m*q_weight + r;
   arma::vec genoURVec = genoURMat.col(jmr);
 	int n = genoURVec.size();
-  // arma::vec s = genoURMat_noweights.col(jm);  // Not sure tthis one ?
+  arma::vec s = genoURMat_noweights.col(jm);  // CHECK
 	arma::uvec indexForNonZero = arma::find(genoURVec != 0); 
-	i = q0 + jm;
+	i = q0 + jmr;
 	markerVec.at(i) = "UR";             // marker IDs
 	if(indexForNonZero.n_elem > 0){
 	  double altFreq = arma::mean(genoURVec)/2;
@@ -1610,13 +1626,12 @@ if(i2 > 0){
       arma::vec genoSumMatvec1 = genoSumMat.col(jmr);
 	    arma::vec genoSumMatvec2 = XV * genoSumMatvec1;
 	    arma::vec genoSumMatvec3 = genoSumMatvec1 - XXVX_inv * genoSumMatvec2;
-          }
       genoSumMat.col(jmr) = genoSumMatvec3;
         }//if(t_regionTestType != "BURDEN"){
 
 	  MAC = MAF * 2 * t_n * (1 - missingRate);   // checked on 08-10-2021
 
-      if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
+    if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
         ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
       }else{
         ptr_gSAIGEobj->set_flagSparseGRM_cur(ptr_gSAIGEobj->m_flagSparseGRM);
@@ -1627,8 +1642,8 @@ if(i2 > 0){
       }else{
         ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
       }
-if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
-
+  
+    if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
 	    annoMAFIndicatorVec.zeros();
 	    annoMAFIndicatorVec(jmr) = 1;
 	    annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
@@ -1982,7 +1997,7 @@ if(t_regionTestType == "BURDEN"){
      }//else{ 
    }
  }
-+//} 
+//} 
 	  std::vector<double> nonMissingPvalVec_std, nonMissingPvalVec_c_std;
 	  double burden_p, burden_p_cond;
 	  for(unsigned int i = 0; i < BURDEN_pval_Vec.size(); i++){
