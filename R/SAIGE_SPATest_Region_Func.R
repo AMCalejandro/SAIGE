@@ -70,174 +70,174 @@ check_close= function(groupFile){
 
 
 #check Group file format and count the number of regions
-checkGroupFile<-function(groupFile){
-
-  cat("Start extracting marker-level information from 'groupFile' of", groupFile, "....\n")	
-  Check_File_Exist(groupFile, "RegionFile")	
+checkGroupFile <- function(groupFile) {
+  
+  cat("Start extracting marker-level information from 'groupFile' of", groupFile, "....\n")
+  Check_File_Exist(groupFile, "RegionFile")
+  
   gf = file(groupFile, "r")
-  marker_group_line = readLines(gf, n = 1)
-  marker_group_line = readLines(gf, n = 1)
+  line = 0  #initialize before use
+  
+  marker_group_line = readLines(gf, n = 1); line = line + 1
+  marker_group_line = readLines(gf, n = 1); line = line + 1
   is_weight_included = FALSE
   a = 2
-  marker_group_line = readLines(gf, n = 1)
+  marker_group_line = readLines(gf, n = 1); line = line + 1
   numberofWeightlists = 0
-  if(length(marker_group_line) == 1){
-    if (length(marker_group_line) == 0) {
-      line = line - 1
-      stop("Error, group file has emply lines\n")
-    }
+  
+  if (length(marker_group_line) == 1) {
     marker_group_line_list = strsplit(marker_group_line, split="[\ \t]+")[[1]]
     if (length(marker_group_line_list) < 3) {
       check_close(gf)
-      stop("Error, group file line:",line ,"Each line should have a region name and a catergory (var, anno or weight) \n")
+      stop("Error, group file line:", line, " Each line should have a region name and a category (var, anno or weight)\n")
     }
     geneID = marker_group_line_list[1]
-    type = marker_group_line_list[2]
+    type   = marker_group_line_list[2]
     weightname = NULL
-
-    if(type == "weight"){
-        is_weight_included = TRUE
-        print("weights are included for markers")
+    
+    if (type == "weight") {
+      is_weight_included  = TRUE
+      print("weights are included for markers")
+      a = 3
+      numberofWeightlists = 1
+      weightname = c(weightname, "WEIGHT")
+      
+    } else {
+      # split on both ':' and ',' to support weight:a and weight,a
+      parts    = unlist(strsplit(type, split="[,:]"))
+      typename = parts[1]
+      
+      if (typename == "weight") {
+        is_weight_included  = TRUE
+        numberofWeightlists = numberofWeightlists + 1
         a = 3
-	numberofWeightlists = 1
-	weightname = c(weightname, "WEIGHT")
-    }else{
-	typename = unlist(strsplit(type, split=":"))[[1]]
-	if(typename == "weight"){
-		is_weight_included = TRUE
-		numberofWeightlists = numberofWeightlists + 1
-		isweight = TRUE
-		a = 3
-		weightname = c(weightname, unlist(strsplit(type, split=":"))[[1]][2])
-		while(isweight){
-			marker_group_line = readLines(gf, n = 1)
-			line = line + 1
-			if(length(marker_group_line) == 1){
-			    if (length(marker_group_line) == 0) {
-				line = line - 1
-				stop("Error, group file has emply lines\n")
-			    }
-			    marker_group_line_list = strsplit(marker_group_line, split="[\ \t]+")[[1]]
-
-			   if (length(marker_group_line_list) < 3) {
-				check_close(gf)
-				stop("Error, group file line:",line ,"Each line should have a region name and a catergory (var, anno or weight) \n")
-			   }
-
-			   geneID_new = marker_group_line_list[1]
-			   type_new = marker_group_line_list[2]
-			   if(geneID_new != geneID){
-				break
-			   }else{
-				typename = unlist(strsplit(type_new, split=":"))[[1]]
-				isweight = TRUE
-				numberofWeightlists = numberofWeightlists + 1
-				a = a + 1
-				weightname = c(weightname, unlist(strsplit(type_new, split=":"))[[1]][2])
-			   }
-			}
-		}
-	}else{
-		if(typename != "var"){
-			stop("Error, group file line:", line, ". This line should have a region name or a wegiht\n")
-		}
-	}
+        weightname = c(weightname, parts[2])  # correct index
+        
+        isweight = TRUE
+        while (isweight) {
+          marker_group_line = readLines(gf, n = 1)
+          line = line + 1
+          
+          if (length(marker_group_line) == 0) {
+            stop("Error, group file has empty lines\n")
+          }
+          
+          marker_group_line_list = strsplit(marker_group_line, split="[\ \t]+")[[1]]
+          if (length(marker_group_line_list) < 3) {
+            check_close(gf)
+            stop("Error, group file line:", line, " Each line should have a region name and a category (var, anno or weight)\n")
+          }
+          
+          geneID_new = marker_group_line_list[1]
+          type_new   = marker_group_line_list[2]
+          
+          if (geneID_new != geneID) {
+            isweight = FALSE  # exit the loop !!!!
+            break
+          } else {
+            parts_new = unlist(strsplit(type_new, split="[,:]"))  # FIX #2: same split fix
+            if (parts_new[1] != "weight") {
+              isweight = FALSE  # exit if next line isn't a weight
+            } else {
+              numberofWeightlists = numberofWeightlists + 1
+              a = a + 1
+              weightname = c(weightname, parts_new[2])  # correct index
+            }
+          }
+        }
+        
+      } else {
+        if (typename != "var") {
+          stop("Error, group file line:", line, ". This line should have a region name or a weight\n")
+        }
+      }
     }
   }
-
+  
   close(gf)
-
+  
+  # --- Second pass: validate all regions ---
   gf = file(groupFile, "r")
-  line=0
+  line    = 0
   nregion = 0
+  
   while (TRUE) {
-
     marker_group_line = readLines(gf, n = a)
-    #line = line+a
-
-    if (length(marker_group_line) == 0 ){	    
-    	break
-    }else{
-	if(length(marker_group_line) < a){
-		marker_group_line_list = strsplit(marker_group_line[1], split="[\ \t]+")[[1]]	
-		if (length(marker_group_line_list) < 3) {
-      			stop("Error, group file line:",line-2 ," is incomplete.\n")
-    		}
-		geneID = marker_group_line_list[1]
-		stop("Group file is incomplete for ", geneID,".\n")
-	}	
-    }	    
-
-
+    
+    if (length(marker_group_line) == 0) {
+      break
+    } else if (length(marker_group_line) < a) {
+      marker_group_line_list = strsplit(marker_group_line[1], split="[\ \t]+")[[1]]
+      if (length(marker_group_line_list) < 3) {
+        stop("Error, group file line:", line - 2, " is incomplete.\n")
+      }
+      geneID = marker_group_line_list[1]
+      stop("Group file is incomplete for ", geneID, ".\n")
+    }
+    
+    # var line
     marker_group_line_list = strsplit(marker_group_line[1], split="[\ \t]+")[[1]]
     line = line + 1
     if (length(marker_group_line_list) < 3) {
-      	stop("Error, group file line:",line ," is incomplete.\n")
-    }    
-    geneID = marker_group_line_list[1]
-    type = marker_group_line_list[2]
-
-    if(type != "var"){
-	stop("Error! No var is specified for ", geneID, "\n")
+      stop("Error, group file line:", line, " is incomplete.\n")
     }
-    geneID0 = geneID
-    numMarkers = length(marker_group_line_list) - 2	
-
+    geneID = marker_group_line_list[1]
+    type   = marker_group_line_list[2]
+    if (type != "var") stop("Error! No var is specified for ", geneID, "\n")
+    geneID0    = geneID
+    numMarkers = length(marker_group_line_list) - 2
+    
+    # anno line
     marker_group_line_list = strsplit(marker_group_line[2], split="[\ \t]+")[[1]]
     line = line + 1
-   if (length(marker_group_line_list) < 3) {
-        stop("Error, group file line:",line ," is incomplete.\n")
+    if (length(marker_group_line_list) < 3) {
+      stop("Error, group file line:", line, " is incomplete.\n")
     }
     geneID = marker_group_line_list[1]
-    type = marker_group_line_list[2]
-	
-    if(type != "anno"){
-	stop("Error! No anno is specified for ", geneID, "\n")
-    }
-    if(geneID != geneID0){
-	stop("anno for ", geneID0, " is missing.\n")
-    }	    
+    type   = marker_group_line_list[2]
+    if (type != "anno")    stop("Error! No anno is specified for ", geneID, "\n")
+    if (geneID != geneID0) stop("anno for ", geneID0, " is missing.\n")
     numAnnos = length(marker_group_line_list) - 2
-    if(numAnnos != numMarkers){
-	stop("The length of annotations for markers in region ", geneID, " is not equal to the length of marker IDs\n")
-    }	
-
-    if(is_weight_included){
-
-      for(i in 3:(a)){
-
-
-	marker_group_line_list = strsplit(marker_group_line[i], split="[\ \t]+")[[1]]
+    if (numAnnos != numMarkers) {
+      stop("The length of annotations for markers in region ", geneID,
+           " is not equal to the length of marker IDs\n")
+    }
+    
+    # weight lines
+    if (is_weight_included) {
+      for (i in 3:a) {
+        marker_group_line_list = strsplit(marker_group_line[i], split="[\ \t]+")[[1]]
         line = line + 1
-	if (length(marker_group_line_list) < 3) {
-        	stop("Error, group file line:",line ," is incomplete.\n")
-    	}
-	geneID = marker_group_line_list[1]
-	type0 = marker_group_line_list[2]
-	type = unlist(strsplit(type0, split=":"))[2]
-	if(type != "weight"){
-        	stop("Error! No weight is specified for ", geneID, "\n")
-    	}
-    	if(geneID != geneID0){
-        	stop("weight for ", geneID0, " is missing.\n")
-    	}
-	numWeights = length(marker_group_line_list) - 2
-        if(numWeights != numMarkers){
-                stop("The length of ", type0, " for markers in region ", geneID, " is not equal to the length of marker IDs\n")
+        if (length(marker_group_line_list) < 3) {
+          stop("Error, group file line:", line, " is incomplete.\n")
         }
-
+        geneID = marker_group_line_list[1]
+        type0  = marker_group_line_list[2]
+        # index [1] to get the prefix ("weight"), not the name
+        type_prefix = unlist(strsplit(type0, split="[,:]"))[1]
+        if (type_prefix != "weight") {
+          stop("Error! No weight is specified for ", geneID, "\n")
+        }
+        if (geneID != geneID0) stop("weight for ", geneID0, " is missing.\n")
+        numWeights = length(marker_group_line_list) - 2
+        if (numWeights != numMarkers) {
+          stop("The length of ", type0, " for markers in region ", geneID,
+               " is not equal to the length of marker IDs\n")
+        }
       }
     }
-   nregion = nregion + 1
-   }    
-    #if(is.null(group_info_list[[geneID]])){
-    #  group_info_list[[geneID]]<-list(geneID = geneID)
-    #}
-    #group_info_list[[geneID]][[type]] = marker_group_line_list[-c(1:2)]
-
-  close(gf)	
-  return(list(nRegions = nregion, is_weight_included = is_weight_included, numberofWeightlists = numberofWeightlists, nameofWeightlists = weightname))
-}	
+    
+    nregion = nregion + 1
+  }
+  
+  close(gf)
+  return(list(
+    nRegions           = nregion,
+    is_weight_included = is_weight_included,
+    numberofWeightlists = numberofWeightlists,
+    nameofWeightlists  = weightname
+  ))
+}
 
 SPA_ER_kernel_related_Phiadj_fast_new<-function(p.new, Score, Phi, p.value_burden, regionTestType){ 
 	p.m = length(Score)

@@ -241,8 +241,7 @@ SPAGMMATtest = function(bgenFile = "",
     	obj.model = ReadModel_subsample(GMMATmodelFile, chrom, LOCO, is_Firth_beta, subSampleFile) #readInGLMM.R	
     }
 
-
-       #time_4 = proc.time()
+    #time_4 = proc.time()
 
 
       if (is_rewrite_XnonPAR_forMales) {
@@ -500,7 +499,7 @@ SPAGMMATtest = function(bgenFile = "",
     #cat("Number of chunks for all markers:\t", nChunks, "\n")
     #}
 
-#time_9 = proc.time()
+    #time_9 = proc.time()
 
 
     if(!isGroupTest){
@@ -535,65 +534,106 @@ SPAGMMATtest = function(bgenFile = "",
     }else{
       maxMACbinind = which(maxMAC_in_groupTest > 0)	
       if(length(maxMACbinind) > 0){ 
-	 maxMAC_in_groupTest_to_MAF = (maxMAC_in_groupTest[maxMACbinind])/(2*length(mu))
-	 cat("maxMAC_in_groupTest: ", maxMAC_in_groupTest, " is specified, corresponding to max MAF ", maxMAC_in_groupTest_to_MAF,"\n")
-	 for(i in 1:length(maxMACbinind)){
-	    checkArgNumeric(maxMAC_in_groupTest_to_MAF[i], deparse(substitute(maxMAC_in_groupTest_to_MAF[i])), 0, 0.5, FALSE, TRUE)
-	}
+        maxMAC_in_groupTest_to_MAF = (maxMAC_in_groupTest[maxMACbinind])/(2*length(mu))
+        cat("maxMAC_in_groupTest: ", maxMAC_in_groupTest, " is specified, corresponding to max MAF ", maxMAC_in_groupTest_to_MAF,"\n")
+        for(i in 1:length(maxMACbinind)){
+          checkArgNumeric(maxMAC_in_groupTest_to_MAF[i], deparse(substitute(maxMAC_in_groupTest_to_MAF[i])), 0, 0.5, FALSE, TRUE)
+          }
         maxMAF_in_groupTest = unique(c(maxMAF_in_groupTest, maxMAC_in_groupTest_to_MAF))
-	maxMAF_in_groupTest = maxMAF_in_groupTest[order(maxMAF_in_groupTest)]
-	cat("max MAF cutoff ", maxMAF_in_groupTest, "will be applied\n")
+        maxMAF_in_groupTest = maxMAF_in_groupTest[order(maxMAF_in_groupTest)]
+        cat("max MAF cutoff ", maxMAF_in_groupTest, "will be applied\n")
       }
 		    #method_to_CollapseUltraRare,
-                     #DosageCutoff_for_UltraRarePresence,
-        if(r.corr == 0 & is_Firth_beta){
-		print("WARNING: Note that the Firth correction has not been implemented for Burden test effect sizes when SKAT-O test is conducted. If the corrected Burden test effect sizes is needed, please use r.corr=1 to only conduct Burden test.")
-		if(is_single_in_groupTest){
-			print("Firth correction will be used for effect sizes of single variant tests")
-
-		}
-	}
-  
-  BetaDist_weight_mat = matrix(c(0, 0), ncol=2)
-  
-  if(!is.null(weights.beta)){
-    BetaDist_weight_mat = NULL
-    for(i in 1:length(weights.beta)){
-      weightsbeta_val_vec = as.numeric(unlist(strsplit(weights.beta[i], split=",")))
-      if(length(weightsbeta_val_vec) == 2){
-        BetaDist_weight_mat = rbind(BetaDist_weight_mat, weightsbeta_val_vec)
-      }else{
-        stop("The ", i, "th element in weights.beta does not have 2 elements\n")
+        #DosageCutoff_for_UltraRarePresence,
+      if(r.corr == 0 & is_Firth_beta){
+        print("WARNING: Note that the Firth correction has not been implemented for Burden test effect sizes when SKAT-O test is conducted. If the corrected Burden test effect sizes is needed, please use r.corr=1 to only conduct Burden test.")
+        if(is_single_in_groupTest){
+          print("Firth correction will be used for effect sizes of single variant tests")
+        }
       }
-    }
+
+      if(!is.null(weights.beta)){
+        BetaDist_weight_mat = do.call(
+          rbind,
+          lapply(weights.beta, function(w){
+            if(is.character(w)){
+              vals = as.numeric(strsplit(w, ",")[[1]])
+            } else if(is.list(w)){
+              vals = as.numeric(unlist(w))   # <-- unlist before coercing
+            } else {
+              vals = as.numeric(w)
+            }
+            if(length(vals) != 2 || any(is.na(vals))){
+              stop("Each weights.beta element must have 2 numeric values")
+            }
+            vals
+          }))
+        BetaDist_weight_mat = matrix(as.numeric(BetaDist_weight_mat), ncol = 2)  # <-- force numeric
+      } else {
+        BetaDist_weight_mat = matrix(c(0, 0), ncol = 2)
+      }
+
+      cat("\n===== SAIGE.Region input diagnostics =====\n")
+      .diag = function(name, x){
+        cat(sprintf("%-45s class=%-15s typeof=%-12s", name, class(x)[1], typeof(x)))
+        if(!is.null(dim(x)))          cat(sprintf(" dim=%s",        paste(dim(x),      collapse="x")))
+        else if(length(x) > 1)       cat(sprintf(" length=%d",     length(x)))
+        if(is.numeric(x) || is.integer(x)) cat(sprintf(" range=[%g, %g]", min(x, na.rm=TRUE), max(x, na.rm=TRUE)))
+        cat("\n")
+      }
+
+      .diag("mu",                              mu)
+      .diag("OutputFile",                      OutputFile)
+      .diag("MACCutoff_to_CollapseUltraRare",  MACCutoff_to_CollapseUltraRare)
+      .diag("groupFile",                       groupFile)
+      .diag("annotation_in_groupTest",         annotation_in_groupTest)
+      .diag("maxMAF_in_groupTest",             maxMAF_in_groupTest)
+      .diag("markers_per_chunk_in_groupTest",  markers_per_chunk_in_groupTest)
+      .diag("genoType",                        genoType)
+      .diag("objGeno$markerInfo",              objGeno$markerInfo)
+      .diag("bgenFileIndex",                   bgenFileIndex)
+      .diag("traitType",                       traitType)
+      .diag("is_imputed_data",                 is_imputed_data)
+      .diag("isCondition",                     isCondition)
+      .diag("condition_weights",               condition_weights)
+      .diag("groups_per_chunk",                groups_per_chunk)
+      .diag("r.corr",                          r.corr)
+      .diag("is_overwrite_output",             is_overwrite_output)
+      .diag("is_single_in_groupTest",          is_single_in_groupTest)
+      .diag("BetaDist_weight_mat",             BetaDist_weight_mat)
+      .diag("is_no_weight_in_groupTest",       is_no_weight_in_groupTest)
+      .diag("is_output_markerList_in_groupTest", is_output_markerList_in_groupTest)
+      .diag("chrom",                           chrom)
+      .diag("is_fastTest",                     is_fastTest)
+      .diag("pval_cutoff_for_fastTest",        pval_cutoff_for_fastTest)
+      .diag("is_output_moreDetails",           is_output_moreDetails)
+
+      cat("===========================================\n\n")
+      
+      SAIGE.Region(mu,
+            OutputFile,
+            MACCutoff_to_CollapseUltraRare,
+                        groupFile,
+                        annotation_in_groupTest,
+                        maxMAF_in_groupTest,
+                        markers_per_chunk_in_groupTest,
+                        genoType,
+                        objGeno$markerInfo,
+            bgenFileIndex,
+            traitType,
+            is_imputed_data,
+            isCondition,
+            condition_weights,
+            groups_per_chunk,
+            r.corr,
+            is_overwrite_output,
+            is_single_in_groupTest,
+            BetaDist_weight_mat,
+            is_no_weight_in_groupTest,
+            is_output_markerList_in_groupTest,
+            chrom,
+            is_fastTest,
+            pval_cutoff_for_fastTest,
+            is_output_moreDetails)
+        }	    
   }
-	
-	SAIGE.Region(mu,
-		     OutputFile,
-		     MACCutoff_to_CollapseUltraRare,
-                     groupFile,
-                     annotation_in_groupTest,
-                     maxMAF_in_groupTest,
-                     markers_per_chunk_in_groupTest,
-                     genoType,
-                     objGeno$markerInfo,
-		     bgenFileIndex,
-		     traitType,
-		     is_imputed_data,
-		     isCondition,
-		     condition_weights,
-		     groups_per_chunk,
-		     r.corr,
-		     is_overwrite_output,
-		     is_single_in_groupTest,
-		     BetaDist_weight_mat,
-		     is_no_weight_in_groupTest,
-		     is_output_markerList_in_groupTest,
-		     chrom,
-		     is_fastTest,
-		     pval_cutoff_for_fastTest,
-		     is_output_moreDetails)
-
-
-    }	    
-}
