@@ -263,7 +263,7 @@ SAIGE.Region = function(mu,
   }
   
   if (is_weight_included) {
-    nline_per_gene = nline_per_gene + numberofWeightlists
+    nline_per_gene = 2 + numberofWeightlists
   } else {
     nline_per_gene = 2
   }
@@ -369,8 +369,19 @@ SAIGE.Region = function(mu,
         #}else{	      
         #  WEIGHT = as.numeric(region$WEIGHT)
         #}
+        # if(is_weight_included){
+        #   WEIGHT = as.numeric(region$WEIGHT)		
+        # }else{
+        #   WEIGHT = matrix(c(0,0), ncol=1)
+        # }
         if(is_weight_included){
-          WEIGHT = as.numeric(region$WEIGHT)		
+          if(is.matrix(region$WEIGHT)){
+            WEIGHT = matrix(as.numeric(region$WEIGHT),
+                            nrow=nrow(region$WEIGHT),
+                            ncol=ncol(region$WEIGHT))
+          } else {
+            WEIGHT = as.numeric(region$WEIGHT)
+          }
         }else{
           WEIGHT = matrix(c(0,0), ncol=1)
         }
@@ -1442,10 +1453,9 @@ SAIGE.getRegionList_new = function(marker_group_line,
                                         "[\ \t]+")[[1]]
     gene = marker_group_line_list[1]
     var = marker_group_line_list[3:length(marker_group_line_list)]
-    marker_group_line_list_anno = strsplit(marker_group_line[2 + (i -
-                                                                    1) * nline_per_gene], split = "[\ \t]+")[[1]]
+    marker_group_line_list_anno = strsplit(marker_group_line[2 + (i -1) * nline_per_gene], split = "[\ \t]+")[[1]]
     anno = marker_group_line_list_anno[3:length(marker_group_line_list_anno)]
-
+    geneData = cbind(rep(gene, length(var)), var, anno)
     if(nline_per_gene > 2){
       for(j in 1:(nline_per_gene-2)){
         marker_group_line_list_weight = strsplit(marker_group_line[2+j+(i-1)*nline_per_gene], split="[\ \t]+")[[1]]
@@ -1575,10 +1585,18 @@ SAIGE.getRegionList_new = function(marker_group_line,
       if (length(posSNP) > 0) {
         SNP = RegionData$SNP[posSNP]
 
-        if(nline_per_gene == 3){	
-          WEIGHT = RegionData[posSNP, 4, drop=F]
-        }else if(nline_per_gene > 3){
-          WEIGHT = RegionData[posSNP, 4:(nline_per_gene+1), drop=F]
+        # if(nline_per_gene == 3){	
+        #   WEIGHT = RegionData[posSNP, 4, drop=F]
+        # }else if(nline_per_gene > 3){
+        #   WEIGHT = RegionData[posSNP, 4:(nline_per_gene+1), drop=F]
+        # }
+        if(nline_per_gene == 3){
+          WEIGHT = matrix(as.numeric(as.matrix(RegionData[posSNP, 4, drop=F])),
+                          ncol=1)
+        } else if(nline_per_gene > 3){
+          WEIGHT = matrix(as.numeric(as.matrix(RegionData[posSNP, 4:(nline_per_gene+1), drop=F])),
+                          nrow=length(posSNP),
+                          ncol=nline_per_gene - 2)
         }
         
         if (any(duplicated(SNP)))

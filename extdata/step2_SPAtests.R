@@ -167,7 +167,7 @@ convertoNumeric = function(x,stringOutput){
 #weights.beta.rare <- convertoNumeric(x=strsplit(opt$weights.beta.rare,",")[[1]], "weights.beta.rare")
 #weights.beta.common <- convertoNumeric(x=strsplit(opt$weights.beta.common,",")[[1]], "weights.beta.common")
 #if(sum(weights.beta.common!=weights.beta.rare) > 0){stop("weights.beta.common option is not functioning, so weights.beta.common needs to be equal to weights.beta.rare")}
-weights.beta <- convertoNumeric(x=strsplit(opt$weights.beta,",")[[1]], "weights.beta")
+# weights.beta <- convertoNumeric(x=strsplit(opt$weights.beta,",")[[1]], "weights.beta")
 
 cateVarRatioMinMACVecExclude <- convertoNumeric(x=strsplit(opt$cateVarRatioMinMACVecExclude,",")[[1]], "cateVarRatioMinMACVecExclude")
 cateVarRatioMaxMACVecInclude <- convertoNumeric(x=strsplit(opt$cateVarRatioMaxMACVecInclude,",")[[1]], "cateVarRatioMaxMACVecInclude")
@@ -243,7 +243,7 @@ if(nThreads == 1){
              MACCutoff_to_CollapseUltraRare = opt$MACCutoff_to_CollapseUltraRare,
              cateVarRatioMinMACVecExclude = cateVarRatioMinMACVecExclude,
              cateVarRatioMaxMACVecInclude = cateVarRatioMaxMACVecInclude,
-             weights.beta = weights.beta,
+             weights.beta = opt$weights.beta,
              r.corr = opt$r.corr,
              condition = opt$condition,
              weights_for_condition = weights_for_condition,
@@ -325,7 +325,7 @@ if(nThreads == 1){
              MACCutoff_to_CollapseUltraRare = opt$MACCutoff_to_CollapseUltraRare,
              cateVarRatioMinMACVecExclude = cateVarRatioMinMACVecExclude,
              cateVarRatioMaxMACVecInclude = cateVarRatioMaxMACVecInclude,
-             weights.beta = weights.beta,
+             weights.beta = opt$weights.beta,
              r.corr = opt$r.corr,
              condition = opt$condition,
              weights_for_condition = weights_for_condition,
