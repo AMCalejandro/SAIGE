@@ -392,6 +392,7 @@ SPAGMMATtest = function(bgenFile = "",
                  chrom = chrom,
                  AlleleOrder = AlleleOrder,
                  sampleInModel = obj.model$sampleID)
+      saveRDS(objGeno, 'objGeno.rds')
 #time_7 = proc.time()
 
 

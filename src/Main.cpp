@@ -1057,7 +1057,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
                           bool t_isMoreOutput) 
 {
 
-
   //create the output list
   Rcpp::List OutList = Rcpp::List::create();
   //arma::vec timeoutput1 = getTime();
@@ -1078,7 +1077,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   bool is_Beta_weight = false;
   if(!t_Beta_param.is_zero()){
      	is_Beta_weight = true;
-	q_weight_beta = t_Beta_param.n_rows;
+      q_weight_beta = t_Beta_param.n_rows;
   }
 
   unsigned int q_anno = annoIndicatorMat.n_cols;
@@ -1105,10 +1104,10 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   unsigned int q_anno_maf = q_anno*q_maf;
   unsigned int q_anno_maf_weight = q_anno*q_maf*q_weight;
   arma::mat genoURMat(t_n, q_anno_maf_weight, arma::fill::zeros);
-  arma::mat genoURMat_noweights(t_n, q_anno_maf, arma::fill::zeros);
-  unsigned int q = q0 + q_anno_maf;
-  arma::imat annoMAFIndicatorMat(q, q_anno_maf, arma::fill::zeros);
-  arma::ivec annoMAFIndicatorVec(q_anno_maf);
+  // arma::mat genoURMat_noweights(t_n, q_anno_maf, arma::fill::zeros);
+  unsigned int q = q0 + q_anno_maf_weight;
+  arma::imat annoMAFIndicatorMat(q, q_anno_maf_weight, arma::fill::zeros);
+  arma::ivec annoMAFIndicatorVec(q_anno_maf_weight);
   annoMAFIndicatorVec.zeros();
   arma::vec maxMAFperAnno(q_anno, arma::fill::zeros);
   arma::vec MAFIndicatorVec(maxMAFVec.n_elem);
@@ -1123,7 +1122,9 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   bool isCondition = ptr_gSAIGEobj->m_isCondition;
   arma::vec w0G2Vec_cond(q_cond);
   double w0G2_cond, MAFG2_cond;
+  arma::mat w0G2Mat_cond(q_cond, q_cond*q_weight);
   if(isCondition){
+  /*
     for(unsigned int ci = 0; ci < q_cond; ci++){
 		//if(!(t_weight_cond.is_zero())){
       w0G2_cond = t_weight_cond(ci);
@@ -1134,7 +1135,14 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
 		  w0G2Vec_cond(ci) = w0G2_cond;
     }
   }
-  arma::mat w0G2Mat_cond(q_cond, q_cond);
+  */
+    for(unsigned int ci = 0; ci < q_weight; ci++){
+      w0G2Vec_cond = (ptr_gSAIGEobj->m_G2_Weight_cond).col(ci);			
+      w0G2Mat_cond.cols(q_cond*ci, q_cond*(ci+1)-1) = w0G2Vec_cond * (w0G2Vec_cond.t());
+    }
+  }
+
+  // arma::mat w0G2Mat_cond(q_cond, q_cond);
   w0G2Mat_cond = w0G2Vec_cond * (w0G2Vec_cond.t());
   arma::mat genoSumMat(t_n, q_anno_maf_weight, arma::fill::zeros); //for Phi_cc for binary traits and BURDEN test
   arma::vec genoSumcount_noweight(q_anno_maf_weight, arma::fill::zeros);
@@ -1165,6 +1173,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   uint32_t N_case, N_ctrl, N; 
 
   //single-variant assoc output
+  // unsigned int q_total = q0 + q_weight * q_anno * q_maf;
   arma::uvec indicatorVec(q, arma::fill::zeros);       // 0: does not pass QC, 1: non-URV, 2: URV
   std::vector<std::string> markerVec(q);
   std::vector<std::string> chrVec(q);  // marker IDs
@@ -1197,7 +1206,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   std::vector<double> varTVec(q, arma::datum::nan);
   std::vector<std::string> pvalNAVec(q, "NA");  
   std::vector<bool>  isSPAConvergeVec(q);
-
 
   unsigned int m1 = g_region_maxMarkers_cutoff;     // number of markers in all chunks expect for the last chunk
   // P2Mat should be of dimension: t_n * m1 
@@ -1364,33 +1372,33 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
         if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){ //perform single-variant assoc tests  
           indexZeroVec_arma = arma::conv_to<arma::uvec>::from(indexZeroVec);
           
-          Rcpp::Rcout << "[DEBUG] Pre-call check:"
-            << " i=" << i
-            << " i1InChunk=" << i1InChunk
-            << " GVec.n_elem=" << GVec.n_elem
-            << " t_n=" << t_n
-            << " indexNonZeroVec_arma.n_elem=" << indexNonZeroVec_arma.n_elem
-            << " indexZeroVec_arma.n_elem=" << indexZeroVec_arma.n_elem
-            << " MAC=" << MAC
-            << " MAF=" << MAF
-            << " altFreq=" << altFreq
-            << " missingRate=" << missingRate
-            << std::endl;
+          // Rcpp::Rcout << "[DEBUG] Pre-call check:"
+          //   << " i=" << i
+          //   << " i1InChunk=" << i1InChunk
+          //   << " GVec.n_elem=" << GVec.n_elem
+          //   << " t_n=" << t_n
+          //   << " indexNonZeroVec_arma.n_elem=" << indexNonZeroVec_arma.n_elem
+          //   << " indexZeroVec_arma.n_elem=" << indexZeroVec_arma.n_elem
+          //   << " MAC=" << MAC
+          //   << " MAF=" << MAF
+          //   << " altFreq=" << altFreq
+          //   << " missingRate=" << missingRate
+          //   << std::endl;
           
-          Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER 
-            << " MAC=" << MAC
-            << " condition=" << (MAC <= g_MACCutoffforER)
-            << std::endl;
+          // Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER 
+          //   << " MAC=" << MAC
+          //   << " condition=" << (MAC <= g_MACCutoffforER)
+          //   << std::endl;
 
-          Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER
-            << " useERbranch=" << (MAC <= g_MACCutoffforER && t_traitType == "binary")
-            << " varRatioVal=" << ptr_gSAIGEobj->m_varRatioVal
-            << " hasVarRatio=" << hasVarRatio
-            << std::endl;
+          // Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER
+          //   << " useERbranch=" << (MAC <= g_MACCutoffforER && t_traitType == "binary")
+          //   << " varRatioVal=" << ptr_gSAIGEobj->m_varRatioVal
+          //   << " hasVarRatio=" << hasVarRatio
+          //   << std::endl;
 
           double effectiveMACCutoff = std::max((double)g_MACCutoffforER, 20.0);
           if(MAC <= effectiveMACCutoff && t_traitType == "binary"){
-          // if(MAC <=  g_MACCutoffforER && t_traitType == "binary"){
+          // if(MAC <=  g_MACCutoffforER && t_traitType == "binary"`){
             Rcpp::Rcout << "[DEBUG] Using SPA (ER) branch" << std::endl;
             Unified_getMarkerPval(GVec,false, // bool t_isOnlyOutputNonZero,
                                   indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, 
@@ -1398,7 +1406,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
                                   P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c,
                                   varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, 
                                   false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
-          }else{	
+          }else{
             Rcpp::Rcout << "[DEBUG] Using standard branch" << std::endl;
             Unified_getMarkerPval(GVec, false, // bool t_isOnlyOutputNonZero,
                                   indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, 
@@ -1459,9 +1467,9 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             for(unsigned int m = 0; m < q_maf; m++){
               if(MAFIndicatorVec(m) == 1){
                 //arma::vec timeoutput3ab0 = getTime();
-                std::cout << "q_maf " << m << std::endl;
+                // std::cout << "q_maf " << m << std::endl;
                 jm = j*q_maf + m;	
-                std::cout << "jm " << jm << std::endl;
+                // std::cout << "jm " << jm << std::endl;
                 annoMAFIndicatorVec(jm) = 1;
                 MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
                 
@@ -1487,7 +1495,8 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             }
           }
         } // for(unsigned int j = 0; j < q_anno; j++){
-        std::cout << "HEREREREREE 2d" << std::endl;
+        // std::cout << "HEREREREREE 2d" << std::endl;
+
         //arma::vec timeoutput3ac = getTime();
         // printTime(timeoutput3ab, timeoutput3ac, "Unified_getOneMarker 3c");
         
@@ -1550,7 +1559,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
                   }
                   for(unsigned int k = 0; k < nNonZero; k++){
                     genoURMat(indexNonZeroVec_arma(k), jmr) = std::max(genoURMat(indexNonZeroVec_arma(k), jmr) , w0 * (GVec(indexNonZeroVec_arma(k)))); // CHECK
-                    genoURMat_noweights(indexNonZeroVec_arma(k), jm) = std::max(genoURMat_noweights(indexNonZeroVec_arma(k), jm) , (GVec(indexNonZeroVec_arma(k))));
+                    // genoURMat_noweights(indexNonZeroVec_arma(k), jm) = std::max(genoURMat_noweights(indexNonZeroVec_arma(k), jm) , (GVec(indexNonZeroVec_arma(k))));
                   }
                   NumUltraRare_GroupVec(jmr) = NumUltraRare_GroupVec(jmr) + 1;
                 }
@@ -1558,7 +1567,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             }
           }
         }
-        std::cout << "IN URV 2d" << std::endl;
+        // std::cout << "IN URV 2d" << std::endl;
         annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
         i2 += 1;
       }
@@ -1580,533 +1589,513 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
 
   } //  for(unsigned int i = 0; i < q0; i++)
 
-
-
-//the second last chunk
+  //the second last chunk
   if(i1InChunk != 0){
     std::cout << "In chunks 0-" << ichunk << ", " << i2 << " markers are ultra-rare and " << i1 << " markers are not ultra-rare." << std::endl;
-    if(t_regionTestType != "BURDEN"){	  
+    if(t_regionTestType != "BURDEN"){
       P1Mat = P1Mat.rows(0, i1InChunk - 1);
       P2Mat = P2Mat.cols(0, i1InChunk - 1);
       P1Mat.save(t_outputFile + "_P1Mat_Chunk_" + std::to_string(ichunk) + ".bin");
       P2Mat.save(t_outputFile + "_P2Mat_Chunk_" + std::to_string(ichunk) + ".bin");
     }
     ichunk = ichunk + 1;
-    //}
     mPassCVVec.push_back(i1InChunk);
     nchunks = nchunks + 1; 
     i1InChunk = 0;
   }
 
-
-//for all UR variants
-if(i2 > 0){
-  int m1new = std::max(m1, q_anno_maf);
-  //if(isWeightCustomized){
-    //weightURMat_cnt.replace(0, 1); 	  
-    //genoURMat = genoURMat / weightURMat_cnt;
-    //weightURMat.ones();    
-  //}
-
-  if(t_regionTestType != "BURDEN"){
-    P1Mat.resize(m1new, P1Mat.n_cols);
-    P2Mat.resize(P2Mat.n_rows,m1new);
-  }
-
-  arma::mat XV, XXVX_inv;
-  ptr_gSAIGEobj->extract_XV_XXVX_inv(XV, XXVX_inv);
-  //the last chunk for UR
-  unsigned int i;
-  for(unsigned int j = 0; j < q_anno; j++){
-     for(unsigned int m = 0; m < q_maf; m++){
-	jm = j*q_maf+m;
-   for(unsigned int r = 0; r < q_weight; r++){
-  jmr = j*q_maf*q_weight + m*q_weight + r;
-  arma::vec genoURVec = genoURMat.col(jmr);
-	int n = genoURVec.size();
-  arma::vec s = genoURMat_noweights.col(jm);  // CHECK
-	arma::uvec indexForNonZero = arma::find(genoURVec != 0); 
-	i = q0 + jmr;
-	markerVec.at(i) = "UR";             // marker IDs
-	if(indexForNonZero.n_elem > 0){
-	  double altFreq = arma::mean(genoURVec)/2;
-	  double altCounts = arma::accu(genoURVec);
-	  double missingRate = 0;
-	  double imputeInfo = 1;
-    	  std::string chr, ref, alt, marker;
-    	  bool flip = false;
-	  std::string info = "UR";	
-    	  double MAF = std::min(altFreq, 1 - altFreq);
-	  double w0 = w0_vec(r);
-	  double MAC = MAF * 2 * t_n * (1 - missingRate);
-	  std::vector<uint32_t> indexForMissing;
-    	  flip = imputeGenoAndFlip(genoURVec, altFreq, altCounts, indexForMissing, g_impute_method, g_dosage_zerod_cutoff, g_dosage_zerod_MAC_cutoff, MAC, indexZeroVec, indexNonZeroVec);
-        for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
-          genoSumMat(indexForNonZero(k), jmr) = genoSumMat(indexForNonZero(k), jmr) + genoURVec(indexForNonZero(k)) * w0;\
-          genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + genoURVec(indexForNonZero(k));
-          }
-  	 if(t_regionTestType != "BURDEN"){
-      arma::vec genoSumMatvec1 = genoSumMat.col(jmr);
-	    arma::vec genoSumMatvec2 = XV * genoSumMatvec1;
-	    arma::vec genoSumMatvec3 = genoSumMatvec1 - XXVX_inv * genoSumMatvec2;
-      genoSumMat.col(jmr) = genoSumMatvec3;
-        }//if(t_regionTestType != "BURDEN"){
-
-	  MAC = MAF * 2 * t_n * (1 - missingRate);   // checked on 08-10-2021
-
-    if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
-        ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
-      }else{
-        ptr_gSAIGEobj->set_flagSparseGRM_cur(ptr_gSAIGEobj->m_flagSparseGRM);
-      }
-
-      if(!isSingleVarianceRatio){
-        hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
-      }else{
-        ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
-      }
-  
-    if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
-	    annoMAFIndicatorVec.zeros();
-	    annoMAFIndicatorVec(jmr) = 1;
-	    annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
-    	    infoVec.at(i) = info;                 // marker information: CHR:POS:REF:ALT
-    	    altFreqVec.at(i) = altFreq;	// allele frequencies of ALT allele, this is not always < 0.5.
-	    altCountsVec.at(i) = altCounts;
-	    missingRateVec.at(i) = missingRate;
-    	    MACVec.at(i) = MAC;
-    	    MAFVec.at(i) = MAF;
-
-            arma::uvec indexZeroVec_arma, indexNonZeroVec_arma;
-            indexZeroVec_arma = arma::conv_to<arma::uvec>::from(indexZeroVec);
-            indexNonZeroVec_arma = arma::conv_to<arma::uvec>::from(indexNonZeroVec);
-
-
-	    if(MAC <= g_MACCutoffforER && t_traitType == "binary" && (!isWeightCustomized || isEqualWeights)){	
-              ptr_gSAIGEobj->getMarkerPval(genoURVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, true, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
-	    }else{
-              ptr_gSAIGEobj->getMarkerPval(genoURVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, true, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, false, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
-	    }
-
-            BetaVec.at(i) = Beta* (1 - 2*flip);
-            seBetaVec.at(i) = seBeta;
-            pvalVec.at(i) = pval;
-	    //pvalVec_val.at(i) = std::stod(pval);
-            pvalNAVec.at(i) = pval_noSPA;
-            TstatVec.at(i) = Tstat * (1 - 2*flip);
-            TstatVec_flip.at(i) = Tstat;
-            gyVec.at(i) = gy;
-            varTVec.at(i) = varT;
-            isSPAConvergeVec.at(i) = isSPAConverge;
-            if(isCondition){
-              Beta_cVec.at(i) = Beta_c * (1 - 2*flip);  // Beta if flip = false, -1 * Beta is flip = true
-              seBeta_cVec.at(i) = seBeta_c;
-              pval_cVec.at(i) = pval_c;
-              pvalNA_cVec.at(i) = pval_noSPA_c;
-              Tstat_cVec.at(i) = Tstat_c * (1 - 2*flip);
-              varT_cVec.at(i) = varT_c;
-              G1tilde_P_G2tilde_Weighted_Mat.row(i) = G1tilde_P_G2tilde_Vec % w0G2Vec_cond.t() * w0;
-            }
-
-    	    chrVec.at(i) = "UR";
-    	    posVec.at(i) = "UR";
-    	    refVec.at(i) = "UR";
-    	    altVec.at(i) = "UR";
-
-
-	    std::string str = std::to_string(maxMAFVec.at(m));
-	    str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
-    	    markerVec.at(i) = regionName + ":" + annoStringVec.at(j) + ":" + str ;
-            arma::vec dosage_case, dosage_ctrl;
-            MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
-            if(t_traitType == "binary" || t_traitType == "survival"){
-                        dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
-                        dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
-                        MACcasegroup = arma::accu(dosage_case);
-                        MACcontrolgroup = arma::accu(dosage_ctrl);
-                        MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
-                        MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
-            }
-
-          if(t_traitType == "binary" || t_traitType == "survival"){
-            AF_case = arma::mean(dosage_case) /2;
-            AF_ctrl = arma::mean(dosage_ctrl) /2;
-            if(flip){
-              AF_case = 1-AF_case;
-              AF_ctrl = 1-AF_ctrl;
-            }
-          AF_caseVec.at(i) = AF_case;
-          AF_ctrlVec.at(i) = AF_ctrl;
-          N_caseVec.at(i) = dosage_case.n_elem;
-          N_ctrlVec.at(i) = dosage_ctrl.n_elem;
-          arma::uvec N_case_ctrl_het_hom0;
-          if(t_isMoreOutput){
-            N_case_ctrl_het_hom0 = arma::find(dosage_case <= 2 && dosage_case >=1.5);
-            N_case_homVec.at(i)  = N_case_ctrl_het_hom0.n_elem;
-            N_case_ctrl_het_hom0 = arma::find(dosage_case < 1.5 && dosage_case >= 0.5);
-            N_case_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-            N_case_ctrl_het_hom0 = arma::find(dosage_ctrl <= 2 && dosage_ctrl >=1.5);
-            N_ctrl_homVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-            N_case_ctrl_het_hom0 = arma::find(dosage_ctrl < 1.5 && dosage_ctrl >= 0.5);
-            N_ctrl_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
-            if(flip){
-              N_case_homVec.at(i) = N_case - N_case_hetVec.at(i) -  N_case_homVec.at(i);
-              N_ctrl_homVec.at(i) = N_ctrl - N_ctrl_hetVec.at(i) - N_ctrl_homVec.at(i);
-              }
-            }//if(t_isMoreOutput){
- 
-         }else if(t_traitType == "quantitative" || t_traitType == "count"){
-          N_Vec.at(i) = n;
-         }
-      if(t_regionTestType != "BURDEN"){	
-        P1Mat.row(i1InChunk) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*gtildeVec.t();
-	//gtildeVec.print("gtildeVec");
-        P2Mat.col(i1InChunk) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*P2Vec;
-	//P2Vec.print("P2Vec");
-
-      } //if(t_regionTestType != "BURDEN"){
-    }else{//if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){	
-            MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
-	                arma::vec dosage_case, dosage_ctrl;
-            if(t_traitType == "binary" || t_traitType == "survival"){
-                        dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
-                        dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
-                        MACcasegroup = arma::accu(dosage_case);
-                        MACcontrolgroup = arma::accu(dosage_ctrl);
-                        MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
-                        MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
-            }
-    }
+  //for all UR variants
+  if(i2 > 0){
+    // int m1new = std::max(m1, q_anno_maf);
+    int m1new = std::max(m1, q_anno_maf_weight);
+    //if(isWeightCustomized){
+      //weightURMat_cnt.replace(0, 1); 	  
+      //genoURMat = genoURMat / weightURMat_cnt;
+      //weightURMat.ones();    
     //}
-    i1InChunk = i1InChunk + 1;
-    i1 = i1 + 1;
-    }
-   }  
-  }
-}
-
-  if(i1InChunk != 0){
-    nchunks = nchunks + 1;
     if(t_regionTestType != "BURDEN"){
-      P1Mat = P1Mat.rows(0, i1InChunk - 1);
-      P2Mat = P2Mat.cols(0, i1InChunk - 1);
-//if(nchunks != 1){
-      P1Mat.save(t_outputFile + "_P1Mat_Chunk_" + std::to_string(ichunk) + ".bin");
-      P2Mat.save(t_outputFile + "_P2Mat_Chunk_" + std::to_string(ichunk) + ".bin");
+      P1Mat.resize(m1new, P1Mat.n_cols);
+      P2Mat.resize(P2Mat.n_rows,m1new);
     }
-      ichunk = ichunk + 1;
-//    }
-    mPassCVVec.push_back(i1InChunk);
-  }
-   //std::cout << "P1Mat.n_rows ok2 " << P1Mat.n_rows << std::endl; 
+
+    arma::mat XV, XXVX_inv;
+    ptr_gSAIGEobj->extract_XV_XXVX_inv(XV, XXVX_inv);
+    //the last chunk for UR
+    unsigned int i;
+    for(unsigned int j = 0; j < q_anno; j++){
+      for(unsigned int m = 0; m < q_maf; m++){
+        jm = j*q_maf+m;
+        for(unsigned int r = 0; r < q_weight; r++){
+          jmr = j*q_maf*q_weight + m*q_weight + r;
+          arma::vec genoURVec = genoURMat.col(jmr);
+          int n = genoURVec.size();
+          arma::uvec indexForNonZero = arma::find(genoURVec != 0);
+          i = q0 + jmr;
+          markerVec.at(i) = "UR";             // marker IDs
+          if(indexForNonZero.n_elem > 0){
+            double altFreq = arma::mean(genoURVec)/2;
+            double altCounts = arma::accu(genoURVec);
+            double missingRate = 0;
+            double imputeInfo = 1;
+            std::string chr, ref, alt, marker;
+            bool flip = false;
+            std::string info = "UR";	
+            double MAF = std::min(altFreq, 1 - altFreq);
+            double w0 = w0_vec(r);
+            double MAC = MAF * 2 * t_n * (1 - missingRate);
+          std::vector<uint32_t> indexForMissing;
+            flip = imputeGenoAndFlip(genoURVec, altFreq, altCounts, indexForMissing, g_impute_method, g_dosage_zerod_cutoff, g_dosage_zerod_MAC_cutoff, MAC, indexZeroVec, indexNonZeroVec);
+            for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
+              genoSumMat(indexForNonZero(k), jmr) = genoSumMat(indexForNonZero(k), jmr) + genoURVec(indexForNonZero(k)) * w0;\
+              genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + genoURVec(indexForNonZero(k));
+            }
+            if(t_regionTestType != "BURDEN"){
+              arma::vec genoSumMatvec1 = genoSumMat.col(jmr);
+              arma::vec genoSumMatvec2 = XV * genoSumMatvec1;
+              arma::vec genoSumMatvec3 = genoSumMatvec1 - XXVX_inv * genoSumMatvec2;
+              genoSumMat.col(jmr) = genoSumMatvec3;
+            }//if(t_regionTestType != "BURDEN"){
+
+            MAC = MAF * 2 * t_n * (1 - missingRate);   // checked on 08-10-2021
+
+            if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
+              ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
+            }else{
+              ptr_gSAIGEobj->set_flagSparseGRM_cur(ptr_gSAIGEobj->m_flagSparseGRM);
+            }
+
+            if(!isSingleVarianceRatio){
+              hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
+            }else{
+              ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, true);
+            }
+    
+            if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){
+              annoMAFIndicatorVec.zeros();
+              annoMAFIndicatorVec(jmr) = 1;
+              annoMAFIndicatorMat.row(i) = annoMAFIndicatorVec.t();
+              infoVec.at(i) = info;                 // marker information: CHR:POS:REF:ALT
+              altFreqVec.at(i) = altFreq;	// allele frequencies of ALT allele, this is not always < 0.5.
+              altCountsVec.at(i) = altCounts;
+              missingRateVec.at(i) = missingRate;
+              MACVec.at(i) = MAC;
+              MAFVec.at(i) = MAF;
+
+              arma::uvec indexZeroVec_arma, indexNonZeroVec_arma;
+              indexZeroVec_arma = arma::conv_to<arma::uvec>::from(indexZeroVec);
+              indexNonZeroVec_arma = arma::conv_to<arma::uvec>::from(indexNonZeroVec);
+              
+              if(MAC <= g_MACCutoffforER && t_traitType == "binary" && (!isWeightCustomized || isEqualWeights)){	
+                ptr_gSAIGEobj->getMarkerPval(genoURVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, true, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
+              }else{
+                ptr_gSAIGEobj->getMarkerPval(genoURVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, true, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, false, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
+              }
+
+              BetaVec.at(i) = Beta* (1 - 2*flip);
+              seBetaVec.at(i) = seBeta;
+              pvalVec.at(i) = pval;
+              //pvalVec_val.at(i) = std::stod(pval);
+              pvalNAVec.at(i) = pval_noSPA;
+              TstatVec.at(i) = Tstat * (1 - 2*flip);
+              TstatVec_flip.at(i) = Tstat;
+              gyVec.at(i) = gy;
+              varTVec.at(i) = varT;
+              isSPAConvergeVec.at(i) = isSPAConverge;
+              if(isCondition){
+                Beta_cVec.at(i) = Beta_c * (1 - 2*flip);  // Beta if flip = false, -1 * Beta is flip = true
+                seBeta_cVec.at(i) = seBeta_c;
+                pval_cVec.at(i) = pval_c;
+                pvalNA_cVec.at(i) = pval_noSPA_c;
+                Tstat_cVec.at(i) = Tstat_c * (1 - 2*flip);
+                varT_cVec.at(i) = varT_c;
+                G1tilde_P_G2tilde_Weighted_Mat.row(i) = G1tilde_P_G2tilde_Vec % w0G2Vec_cond.t() * w0;
+              }
+
+              chrVec.at(i) = "UR";
+              posVec.at(i) = "UR";
+              refVec.at(i) = "UR";
+              altVec.at(i) = "UR";
+
+
+              std::string str = std::to_string(maxMAFVec.at(m));
+              str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+              markerVec.at(i) = regionName + ":" + annoStringVec.at(j) + ":" + str ;
+              arma::vec dosage_case, dosage_ctrl;
+              MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
+              if(t_traitType == "binary" || t_traitType == "survival"){
+                dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
+                dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
+                MACcasegroup = arma::accu(dosage_case);
+                MACcontrolgroup = arma::accu(dosage_ctrl);
+                MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
+                MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
+              }
+
+              if(t_traitType == "binary" || t_traitType == "survival"){
+                AF_case = arma::mean(dosage_case) /2;
+                AF_ctrl = arma::mean(dosage_ctrl) /2;
+                if(flip){
+                  AF_case = 1-AF_case;
+                  AF_ctrl = 1-AF_ctrl;
+                }
+                AF_caseVec.at(i) = AF_case;
+                AF_ctrlVec.at(i) = AF_ctrl;
+                N_caseVec.at(i) = dosage_case.n_elem;
+                N_ctrlVec.at(i) = dosage_ctrl.n_elem;
+                arma::uvec N_case_ctrl_het_hom0;
+                if(t_isMoreOutput){
+                  N_case_ctrl_het_hom0 = arma::find(dosage_case <= 2 && dosage_case >=1.5);
+                  N_case_homVec.at(i)  = N_case_ctrl_het_hom0.n_elem;
+                  N_case_ctrl_het_hom0 = arma::find(dosage_case < 1.5 && dosage_case >= 0.5);
+                  N_case_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+                  N_case_ctrl_het_hom0 = arma::find(dosage_ctrl <= 2 && dosage_ctrl >=1.5);
+                  N_ctrl_homVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+                  N_case_ctrl_het_hom0 = arma::find(dosage_ctrl < 1.5 && dosage_ctrl >= 0.5);
+                  N_ctrl_hetVec.at(i) = N_case_ctrl_het_hom0.n_elem;
+                  if(flip){
+                    N_case_homVec.at(i) = N_case - N_case_hetVec.at(i) -  N_case_homVec.at(i);
+                    N_ctrl_homVec.at(i) = N_ctrl - N_ctrl_hetVec.at(i) - N_ctrl_homVec.at(i);
+                  }
+                }
+              }else if(t_traitType == "quantitative" || t_traitType == "count"){
+                N_Vec.at(i) = n;
+              }
+
+              if(t_regionTestType != "BURDEN"){	
+                // P1Mat.row(i1InChunk) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*gtildeVec.t();
+                P1Mat.row(jmr) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*gtildeVec.t();
+                //gtildeVec.print("gtildeVec");
+                // P2Mat.col(i1InChunk) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*P2Vec;
+                P2Mat.col(jmr) = sqrt(ptr_gSAIGEobj->m_varRatioVal)*P2Vec;
+                //P2Vec.print("P2Vec");
+              } //if(t_regionTestType != "BURDEN"){
+          
+            }else{//if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){	
+              MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
+              arma::vec dosage_case, dosage_ctrl;
+              if(t_traitType == "binary" || t_traitType == "survival"){
+                dosage_case = genoURVec.elem(ptr_gSAIGEobj->m_case_indices);
+                dosage_ctrl = genoURVec.elem(ptr_gSAIGEobj->m_ctrl_indices);
+                MACcasegroup = arma::accu(dosage_case);
+                MACcontrolgroup = arma::accu(dosage_ctrl);
+                MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
+                MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
+              }
+            }
+            //}
+            i1InChunk = i1InChunk + 1;
+            i1 = i1 + 1;
+          }
+        }  
+      }
+    }
+
+    if(i1InChunk != 0){
+      nchunks = nchunks + 1;
+      if(t_regionTestType != "BURDEN"){
+        P1Mat = P1Mat.rows(0, i1InChunk - 1);
+        P2Mat = P2Mat.cols(0, i1InChunk - 1);
+        //if(nchunks != 1){
+        P1Mat.save(t_outputFile + "_P1Mat_Chunk_" + std::to_string(ichunk) + ".bin");
+        P2Mat.save(t_outputFile + "_P2Mat_Chunk_" + std::to_string(ichunk) + ".bin");
+      }
+        ichunk = ichunk + 1;
+      //    }
+      mPassCVVec.push_back(i1InChunk);
+    }
+    //std::cout << "P1Mat.n_rows ok2 " << P1Mat.n_rows << std::endl; 
 
   }// if(i2 > 0)    
   int mPassCVVecsize = mPassCVVec.size();
   nchunks = mPassCVVecsize;
 
+  arma::mat VarMat;
+  //(i1, i1);
 
-arma::mat VarMat;
-//(i1, i1);
+  if(t_regionTestType != "BURDEN"){
+    VarMat.resize(i1, i1);	
+    if(nchunks == 1){
+      VarMat = P1Mat * P2Mat;
+    }
 
-if(t_regionTestType != "BURDEN"){
-  VarMat.resize(i1, i1);	
-  if(nchunks == 1){
-    VarMat = P1Mat * P2Mat;
-  }
-
-  // the region includes more markers than limitation, so P1Mat and P2Mat have been put in hard drive
-  if(nchunks > 1)
-  {
-    int first_row = 0, first_col = 0, last_row = 0, last_col = 0;
-    
-    for(unsigned int index1 = 0; index1 < nchunks; index1++)
-    {
-      last_row = first_row + mPassCVVec.at(index1) - 1;
+    // the region includes more markers than limitation, so P1Mat and P2Mat have been put in hard drive
+    if(nchunks > 1){
+      int first_row = 0, first_col = 0, last_row = 0, last_col = 0;
       
-      std::string P1MatFile = t_outputFile + "_P1Mat_Chunk_" + std::to_string(index1) + ".bin";
-      
+      for(unsigned int index1 = 0; index1 < nchunks; index1++){
+        last_row = first_row + mPassCVVec.at(index1) - 1;
+        std::string P1MatFile = t_outputFile + "_P1Mat_Chunk_" + std::to_string(index1) + ".bin";
         P1Mat.load(P1MatFile);
-   
-       //P1Mat.print("P1Mat");
-
-      if(P1Mat.n_cols == 0) continue;
-      
-      // off-diagonal sub-matrix
-      for(unsigned int index2 = 0; index2 < index1; index2++)
-      {
-        std::cout << "Analyzing chunks (" << index1 << "/" << nchunks - 1 << ", " << index2 << "/" << nchunks - 1 << ")........" << std::endl;
-       
-        P2Mat.load(t_outputFile + "_P2Mat_Chunk_" + std::to_string(index2) + ".bin");
-       //P2Mat.print("P2Mat");
+        //P1Mat.print("P1Mat");
+        if(P1Mat.n_cols == 0) continue;
+        // off-diagonal sub-matrix
+        for(unsigned int index2 = 0; index2 < index1; index2++){
+          std::cout << "Analyzing chunks (" << index1 << "/" << nchunks - 1 << ", " << index2 << "/" << nchunks - 1 << ")........" << std::endl;
+          P2Mat.load(t_outputFile + "_P2Mat_Chunk_" + std::to_string(index2) + ".bin");
+          //P2Mat.print("P2Mat");
+          
+          if(P2Mat.n_cols == 0) continue;
+          arma::mat offVarMat = P1Mat * P2Mat;
+          last_col = first_col + mPassCVVec.at(index2) - 1;
+          
+          VarMat.submat(first_row, first_col, last_row, last_col) = offVarMat;
+          VarMat.submat(first_col, first_row, last_col, last_row) = offVarMat.t();
+          first_col = last_col + 1;
+        }
         
-        if(P2Mat.n_cols == 0) continue;
-        arma::mat offVarMat = P1Mat * P2Mat;
-        last_col = first_col + mPassCVVec.at(index2) - 1;
+        // diagonal sub-matrix
+        last_col = first_col + mPassCVVec.at(index1) - 1;
+        std::cout << "Analyzing chunks (" << index1 << "/" << nchunks - 1 << ", " << index1 << "/" << nchunks - 1 << ")........" << std::endl;
+        //std::cout << "P2Mat.n_cols " << P2Mat.n_cols << std::endl;
+        P2Mat.load(t_outputFile + "_P2Mat_Chunk_" + std::to_string(index1) + ".bin");
         
-        VarMat.submat(first_row, first_col, last_row, last_col) = offVarMat;
-        VarMat.submat(first_col, first_row, last_col, last_row) = offVarMat.t();
-        first_col = last_col + 1;
+        arma::mat diagVarMat = P1Mat * P2Mat;
+        
+        VarMat.submat(first_row, first_col, last_row, last_col) = diagVarMat;
+        
+        first_row = last_row + 1;
+        first_col = 0;
+        Rcpp::checkUserInterrupt();
       }
       
-      // diagonal sub-matrix
-      last_col = first_col + mPassCVVec.at(index1) - 1;
-      std::cout << "Analyzing chunks (" << index1 << "/" << nchunks - 1 << ", " << index1 << "/" << nchunks - 1 << ")........" << std::endl;
-      //std::cout << "P2Mat.n_cols " << P2Mat.n_cols << std::endl;
-      P2Mat.load(t_outputFile + "_P2Mat_Chunk_" + std::to_string(index1) + ".bin");
-      
-      arma::mat diagVarMat = P1Mat * P2Mat;
-      
-      VarMat.submat(first_row, first_col, last_row, last_col) = diagVarMat;
-      
-      first_row = last_row + 1;
-      first_col = 0;
-      Rcpp::checkUserInterrupt();
+      for(unsigned int index1 = 0; index1 < nchunks; index1++)
+      {
+        std::string P1MatFile = t_outputFile + "_P1Mat_Chunk_" + std::to_string(index1) + ".bin";
+        std::string P2MatFile = t_outputFile + "_P2Mat_Chunk_" + std::to_string(index1) + ".bin";
+        const char* File1 = P1MatFile.c_str();
+        const char* File2 = P2MatFile.c_str();
+        std::remove(File1);
+        std::remove(File2);
+      } 
     }
-     
-    for(unsigned int index1 = 0; index1 < nchunks; index1++)
-    {
-      std::string P1MatFile = t_outputFile + "_P1Mat_Chunk_" + std::to_string(index1) + ".bin";
-      std::string P2MatFile = t_outputFile + "_P2Mat_Chunk_" + std::to_string(index1) + ".bin";
-      const char* File1 = P1MatFile.c_str();
-      const char* File2 = P2MatFile.c_str();
-      std::remove(File1);
-      std::remove(File2);
+  }  //if(t_regionTestType != "BURDEN"){
+
+  //read and test single markers done
+  //arma::vec timeoutput2 = getTime();
+  //printTime(timeoutput1, timeoutput2, "read and test single markers done");
+  //check the max MAF of all markers
+  //if there are sets containing the same markers
+  arma::uvec q_maf_for_anno(q_anno);
+  for(unsigned int j = 0; j < q_anno; j++){
+    arma::uvec jtemp = find(maxMAFVec >= maxMAFperAnno(j));
+    q_maf_for_anno(j) = jtemp.min();
+  }
+  std::cout << "q_maf_for_anno: " << q_maf_for_anno.t() << std::endl;
+
+  //If only conduct Burden test
+  //arma::vec BURDEN_pval_Vec(q_anno_maf);
+  std::vector<std::string> BURDEN_pval_Vec(q_anno_maf_weight, "NA");
+  // BURDEN_pval_Vec.fill(-1.0);
+  //arma::vec BURDEN_pval_cVec(q_anno_maf);
+  std::vector<std::string> BURDEN_pval_cVec(q_anno_maf_weight, "NA");
+  //BURDEN_pval_cVec.fill(-1.0);
+  std::vector<std::string> BURDEN_AnnoName_Vec(q_anno_maf_weight);
+  std::vector<std::string> BURDEN_maxMAFName_Vec(q_anno_maf_weight);
+  std::vector<double> BURDEN_Beta_Vec(q_anno_maf_weight);
+  std::vector<double> BURDEN_seBeta_Vec(q_anno_maf_weight);
+  //std::vector<double> BURDEN_pval_cVec(q_anno_maf);
+  std::vector<double> BURDEN_Beta_cVec(q_anno_maf_weight);
+  std::vector<double> BURDEN_seBeta_cVec(q_anno_maf_weight);
+
+
+
+  bool iswriteOutput = false;
+  bool isregion = true;
+  if(!ptr_gSAIGEobj->m_flagSparseGRM){
+    isregion = false;
+  }
+  //Rcpp::DataFrame OUT_BURDEN = Rcpp::DataFrame::create();
+  unsigned int i= 0;
+  unsigned int q_maf_m;
+  bool isPolyMarker = true;
+  std::string AnnoName;
+  double maxMAFName;
+  
+  if(t_regionTestType == "BURDEN"){
+    for(unsigned int j = 0; j < q_anno; j++){
+      q_maf_m = q_maf_for_anno(j);
+      AnnoName = annoStringVec[j];
+      isPolyMarker = true;	
+      for(unsigned int m = 0; m < q_maf; m++){
+        maxMAFName = maxMAFVec(m); 
+        jm = j*q_maf+m;
+        i = jm;
+        if(m <= q_maf_m){
+          for(unsigned int r = 0; r < q_weight; r++){
+            jmr = j*q_maf*q_weight + m*q_weight + r;
+            arma::vec genoSumVec = genoSumMat.col(jmr);
+            int n = genoSumVec.size();
+            arma::uvec indexNonZeroVec_arma = arma::find(genoSumVec != 0);
+            arma::uvec indexZeroVec_arma = arma::find(genoSumVec == 0);
+            //double altFreq = arma::mean(genoSumVec)/2;
+            //double altCounts = arma::accu(genoSumVec);
+            double altCounts =  genoSumcount_noweight(jmr);
+            double altFreq = altCounts/(2*t_n);
+            double MAC, MAF;
+            if(altFreq > 1){
+              MAF = 1;
+              MAC = t_n;
+            }else{
+              MAF = std::min(altFreq, 1 - altFreq);
+              MAC = MAF*2*t_n;
+            }
+            //std::cout << "altCounts " << altCounts << std::endl;
+            //std::cout << "altFreq " << altCounts << std::endl;
+            double missingRate = 0;
+            double imputeInfo = 1;
+            std::string chr, ref, alt, marker;
+            bool flip = false;
+            std::string info = "UR";
+            //double MAF = std::min(altFreq, 1 - altFreq);
+            double w0;
+            //double MAC = MAF * 2 * t_n * (1 - missingRate);
+            if(indexNonZeroVec_arma.n_elem > 0 && MAC >= g_min_gourpmac_for_burdenonly){
+              //if(MAC >= g_min_gourpmac_for_burdenonly){
+              isPolyMarker = true;   
+              std::vector<uint32_t> indexForMissing;
+
+              if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
+                ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
+              }else{
+                ptr_gSAIGEobj->set_flagSparseGRM_cur(ptr_gSAIGEobj->m_flagSparseGRM);
+              }
+
+              if(!isSingleVarianceRatio){
+                hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
+              }else{
+                ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
+              }
+              //if(!isSingleVarianceRatio){
+              // hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
+              //}
+              //arma::vec timeoutput_getp = getTime();
+              if(MAC <= g_MACCutoffforER && t_traitType == "binary" && (!isWeightCustomized || isEqualWeights) ){
+                    ptr_gSAIGEobj->getMarkerPval(genoSumVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, isregion, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
+              }else{
+                    ptr_gSAIGEobj->getMarkerPval(genoSumVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, isregion, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, false, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
+              }	  
+              //arma::vec timeoutput_getp2 = getTime();
+              //printTime(timeoutput_getp, timeoutput_getp2, "get p  done");
+            
+              if(isCondition){
+                BURDEN_pval_cVec.at(i) = pval_c;
+                BURDEN_Beta_cVec.at(i) = Beta_c;
+                BURDEN_seBeta_cVec.at(i) = seBeta_c;
+              }
+
+              BURDEN_AnnoName_Vec.at(i) = AnnoName;
+              std::string str = std::to_string(maxMAFName);
+              str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+              BURDEN_maxMAFName_Vec.at(i) = str;
+              BURDEN_pval_Vec.at(i) = pval;
+              BURDEN_Beta_Vec.at(i) = Beta;
+              BURDEN_seBeta_Vec.at(i) = seBeta;
+
+            }else{ //if(indexNonZeroVec_arma.n_elem > 0 && MAC >= g_min_gourpmac_for_burdenonly){
+              isPolyMarker = false;	 
+            }
+          }//for(unsigned int r = 0; r < q_weight; r++){
+        }else{
+          if(isPolyMarker){
+            if(isCondition){
+              BURDEN_pval_cVec.at(i) = pval_c;
+              BURDEN_Beta_cVec.at(i) = Beta_c;
+              BURDEN_seBeta_cVec.at(i) = seBeta_c;
+            }
+            BURDEN_AnnoName_Vec.at(i) = AnnoName;
+            BURDEN_maxMAFName_Vec.at(i) = std::to_string(maxMAFName);
+            BURDEN_pval_Vec.at(i) = pval;
+            BURDEN_Beta_Vec.at(i) = Beta;
+            BURDEN_seBeta_Vec.at(i) = seBeta; 
+          }
+        }
+      }
+    }
+    std::vector<double> nonMissingPvalVec_std, nonMissingPvalVec_c_std;
+    double burden_p, burden_p_cond;
+    for(unsigned int i = 0; i < BURDEN_pval_Vec.size(); i++){
+      if(BURDEN_pval_Vec.at(i) != "NA"){
+        burden_p = std::stod(BURDEN_pval_Vec.at(i));
+        nonMissingPvalVec_std.push_back(burden_p);
+        if(isCondition){
+          burden_p_cond = std::stod(BURDEN_pval_cVec.at(i));
+          nonMissingPvalVec_c_std.push_back(burden_p_cond);
+        }
+      }
+    }
+
+    arma::vec nonMissingPvalVec = arma::conv_to< arma::vec >::from(nonMissingPvalVec_std);
+    //arma::uvec nonMissingPvalVecInd = arma::find(BURDEN_pval_Vec >= 0);
+    //arma::vec nonMissingPvalVec = BURDEN_pval_Vec.elem(nonMissingPvalVecInd);
+    cctpval = CCT_cpp(nonMissingPvalVec);
+    if(isCondition){
+      //arma::vec nonMissingPvalVec_cond = BURDEN_pval_cVec.elem(nonMissingPvalVecInd);
+      arma::vec nonMissingPvalVec_cond  = arma::conv_to< arma::vec >::from(nonMissingPvalVec_c_std);
+      cctpval_cond = CCT_cpp(nonMissingPvalVec_cond);	   
+    }
+
+    if(!t_isFastTest){
+      iswriteOutput = true;
+    }else{
+      if(ptr_gSAIGEobj->m_flagSparseGRM_cur){
+        iswriteOutput = true;
+      }else{
+        if(cctpval >= 0.1){
+          iswriteOutput = true;
+        }
+      }
     }
     
-  }
-}  //if(t_regionTestType != "BURDEN"){
-
-//read and test single markers done
-//arma::vec timeoutput2 = getTime();
-//printTime(timeoutput1, timeoutput2, "read and test single markers done");
-//check the max MAF of all markers
-//if there are sets containing the same markers
-arma::uvec q_maf_for_anno(q_anno);
-for(unsigned int j = 0; j < q_anno; j++){
-	arma::uvec jtemp = find(maxMAFVec >= maxMAFperAnno(j));
-	q_maf_for_anno(j) = jtemp.min();
-}
-
-//If only conduct Burden test
-//arma::vec BURDEN_pval_Vec(q_anno_maf);
-std::vector<std::string> BURDEN_pval_Vec(q_anno_maf, "NA");
-//BURDEN_pval_Vec.fill(-1.0);
-//arma::vec BURDEN_pval_cVec(q_anno_maf);
-std::vector<std::string> BURDEN_pval_cVec(q_anno_maf, "NA");
-//BURDEN_pval_cVec.fill(-1.0);
-std::vector<std::string> BURDEN_AnnoName_Vec(q_anno_maf);
-std::vector<std::string> BURDEN_maxMAFName_Vec(q_anno_maf);
-std::vector<double> BURDEN_Beta_Vec(q_anno_maf);
-std::vector<double> BURDEN_seBeta_Vec(q_anno_maf);
-//std::vector<double> BURDEN_pval_cVec(q_anno_maf);
-std::vector<double> BURDEN_Beta_cVec(q_anno_maf);
-std::vector<double> BURDEN_seBeta_cVec(q_anno_maf);
-
-
-
-bool iswriteOutput = false;
-bool isregion = true;
-if(!ptr_gSAIGEobj->m_flagSparseGRM){
-	isregion = false;
-}
-//Rcpp::DataFrame OUT_BURDEN = Rcpp::DataFrame::create();
-unsigned int i= 0;
-unsigned int q_maf_m;
-bool isPolyMarker = true;
-std::string AnnoName;
-double maxMAFName;
-if(t_regionTestType == "BURDEN"){
-     for(unsigned int j = 0; j < q_anno; j++){
-       q_maf_m = q_maf_for_anno(j);
-       AnnoName = annoStringVec[j];
-       isPolyMarker = true;	
-       for(unsigned int m = 0; m < q_maf; m++){
-	maxMAFName = maxMAFVec(m); 
-	jm = j*q_maf+m;
-	i = jm;
-       if(m <= q_maf_m){
-
-	  for(unsigned int r = 0; r < q_weight; r++){
-	          jmr = j*q_maf*q_weight + m*q_weight + r;
-
-        arma::vec genoSumVec = genoSumMat.col(jmr);
-        int n = genoSumVec.size();
-        arma::uvec indexNonZeroVec_arma = arma::find(genoSumVec != 0);
-	arma::uvec indexZeroVec_arma = arma::find(genoSumVec == 0);
-        //double altFreq = arma::mean(genoSumVec)/2;
-        //double altCounts = arma::accu(genoSumVec);
-	double altCounts =  genoSumcount_noweight(jmr);
-	double altFreq = altCounts/(2*t_n);
-	double MAC, MAF;
-	if(altFreq > 1){
-		MAF = 1;
-		MAC = t_n;
-	}else{
-		MAF = std::min(altFreq, 1 - altFreq);
-		MAC = MAF*2*t_n;
-	}
-	//std::cout << "altCounts " << altCounts << std::endl;
-	//std::cout << "altFreq " << altCounts << std::endl;
-        double missingRate = 0;
-        double imputeInfo = 1;
-        std::string chr, ref, alt, marker;
-        bool flip = false;
-        std::string info = "UR";
-        //double MAF = std::min(altFreq, 1 - altFreq);
-        double w0;
-        //double MAC = MAF * 2 * t_n * (1 - missingRate);
-        if(indexNonZeroVec_arma.n_elem > 0 && MAC >= g_min_gourpmac_for_burdenonly){
-	  //if(MAC >= g_min_gourpmac_for_burdenonly){
-          isPolyMarker = true;   
-	  std::vector<uint32_t> indexForMissing;
-
-      if(MAC > ptr_gSAIGEobj->m_cateVarRatioMinMACVecExclude.back()){
-        ptr_gSAIGEobj->set_flagSparseGRM_cur(false);
-      }else{
-        ptr_gSAIGEobj->set_flagSparseGRM_cur(ptr_gSAIGEobj->m_flagSparseGRM);
+    if(iswriteOutput){
+      writeOutfile_BURDEN(regionName,
+        BURDEN_AnnoName_Vec,
+        BURDEN_maxMAFName_Vec,
+        BURDEN_pval_Vec,
+        BURDEN_Beta_Vec,
+        BURDEN_seBeta_Vec,
+        BURDEN_pval_cVec,
+        BURDEN_Beta_cVec,
+        BURDEN_seBeta_cVec,
+        MAC_GroupVec,
+        MACCase_GroupVec,
+        MACControl_GroupVec,
+        NumRare_GroupVec,
+        NumUltraRare_GroupVec,
+        cctpval,
+        cctpval_cond,
+        q_anno,
+        q_maf,
+        isCondition,
+        t_traitType);
+    }else{
+      OutList.push_back(iswriteOutput, "iswriteOutput");
+    }
+    //arma::vec timeoutput3 = getTime();
+    //printTime(timeoutput2, timeoutput3, "burden test done");
+  }else{
+    q_maf_for_anno = q_maf_for_anno + 1;
+    std::cout << "q_maf_for_anno: " << q_maf_for_anno.t() << std::endl;
+    OutList.push_back(MAC_GroupVec, "MAC_GroupVec");
+    OutList.push_back(q_maf_for_anno, "q_maf_for_annoVec");
+    if(t_traitType == "binary" || t_traitType == "survival"){
+      if(t_traitType == "binary"){
+        OutList.push_back(MACCase_GroupVec, "MACCase_GroupVec");
+        OutList.push_back(MACControl_GroupVec, "MACCtrl_GroupVec");
+      }else if(t_traitType == "survival"){
+        OutList.push_back(MACCase_GroupVec, "MACEvent_GroupVec");
+        OutList.push_back(MACControl_GroupVec, "MACCensor_GroupVec");
       }
 
-      if(!isSingleVarianceRatio){
-        hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
-      }else{
-        ptr_gSAIGEobj->assignSingleVarianceRatio(ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
-      }
-          //if(!isSingleVarianceRatio){
-           // hasVarRatio = ptr_gSAIGEobj->assignVarianceRatio(MAC, ptr_gSAIGEobj->m_flagSparseGRM_cur, false);
-          //}
-
-
-	  //arma::vec timeoutput_getp = getTime();
-	  if(MAC <= g_MACCutoffforER && t_traitType == "binary" && (!isWeightCustomized || isEqualWeights) ){
-          ptr_gSAIGEobj->getMarkerPval(genoSumVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, isregion, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
-	  }else{
-          ptr_gSAIGEobj->getMarkerPval(genoSumVec, indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, altFreq, Tstat, gy, varT, isSPAConverge, gtildeVec, is_gtilde, isregion, P2Vec, isCondition, Beta_c, seBeta_c, pval_c, pval_noSPA_c, Tstat_c, varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, false, false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
-	  }	  
-	  //arma::vec timeoutput_getp2 = getTime();
-	  //printTime(timeoutput_getp, timeoutput_getp2, "get p  done");
-	  
-	  if(isCondition){
-	    BURDEN_pval_cVec.at(i) = pval_c;
-	    BURDEN_Beta_cVec.at(i) = Beta_c;
-	    BURDEN_seBeta_cVec.at(i) = seBeta_c;
-          }
-
-	   BURDEN_AnnoName_Vec.at(i) = AnnoName;
-	   std::string str = std::to_string(maxMAFName);
-	   str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
-	   BURDEN_maxMAFName_Vec.at(i) = str;
-	   BURDEN_pval_Vec.at(i) = pval;
-	   BURDEN_Beta_Vec.at(i) = Beta;
-	   BURDEN_seBeta_Vec.at(i) = seBeta;
-
-        }else{ //if(indexNonZeroVec_arma.n_elem > 0 && MAC >= g_min_gourpmac_for_burdenonly){
-	   isPolyMarker = false;	 
-	}
-      }//for(unsigned int r = 0; r < q_weight; r++){
-     }else{
-	if(isPolyMarker){
-	  if(isCondition){
-            BURDEN_pval_cVec.at(i) = pval_c;
-            BURDEN_Beta_cVec.at(i) = Beta_c;
-            BURDEN_seBeta_cVec.at(i) = seBeta_c;
-          }
-
-           BURDEN_AnnoName_Vec.at(i) = AnnoName;
-           BURDEN_maxMAFName_Vec.at(i) = std::to_string(maxMAFName);
-           BURDEN_pval_Vec.at(i) = pval;
-           BURDEN_Beta_Vec.at(i) = Beta;
-           BURDEN_seBeta_Vec.at(i) = seBeta; 
-	 }
-     }//else{ 
-   }
- }
-//} 
-	  std::vector<double> nonMissingPvalVec_std, nonMissingPvalVec_c_std;
-	  double burden_p, burden_p_cond;
-	  for(unsigned int i = 0; i < BURDEN_pval_Vec.size(); i++){
-		if(BURDEN_pval_Vec.at(i) != "NA"){
-	  		burden_p = std::stod(BURDEN_pval_Vec.at(i));
-			nonMissingPvalVec_std.push_back(burden_p);
-			if(isCondition){
-				burden_p_cond = std::stod(BURDEN_pval_cVec.at(i));
-				nonMissingPvalVec_c_std.push_back(burden_p_cond);
-			}
-		}	
-	  } 
-
-	  arma::vec nonMissingPvalVec = arma::conv_to< arma::vec >::from(nonMissingPvalVec_std);
-	  //arma::uvec nonMissingPvalVecInd = arma::find(BURDEN_pval_Vec >= 0);
-	  //arma::vec nonMissingPvalVec = BURDEN_pval_Vec.elem(nonMissingPvalVecInd);
-	   cctpval = CCT_cpp(nonMissingPvalVec);
-           if(isCondition){
-	        //arma::vec nonMissingPvalVec_cond = BURDEN_pval_cVec.elem(nonMissingPvalVecInd);
-		arma::vec nonMissingPvalVec_cond  = arma::conv_to< arma::vec >::from(nonMissingPvalVec_c_std);
-	   	cctpval_cond = CCT_cpp(nonMissingPvalVec_cond);	   
-           }
-
-	
-	   if(!t_isFastTest){
-		iswriteOutput = true;
-	   }else{
-		if(ptr_gSAIGEobj->m_flagSparseGRM_cur){
-			iswriteOutput = true;
-		}else{
-		  if(cctpval >= 0.1){
-			iswriteOutput = true;
-		  } 	
-		}
-	   }
-	
-	   if(iswriteOutput){
-		writeOutfile_BURDEN(regionName,
-			BURDEN_AnnoName_Vec,
-			BURDEN_maxMAFName_Vec,
-			BURDEN_pval_Vec,
-			BURDEN_Beta_Vec,
-			BURDEN_seBeta_Vec,
-			BURDEN_pval_cVec,
-			BURDEN_Beta_cVec,
-			BURDEN_seBeta_cVec,
-			MAC_GroupVec,
-			MACCase_GroupVec,
-			MACControl_GroupVec,
-			NumRare_GroupVec,
-			NumUltraRare_GroupVec,
-			cctpval,
-			cctpval_cond,
-			q_anno,
-			q_maf,
-			isCondition,
-			t_traitType);
-	   }else{
-	     OutList.push_back(iswriteOutput, "iswriteOutput");
-	   }
-
- //arma::vec timeoutput3 = getTime();
- //printTime(timeoutput2, timeoutput3, "burden test done");
- }else{
-  q_maf_for_anno = q_maf_for_anno + 1;
-  OutList.push_back(MAC_GroupVec, "MAC_GroupVec");
-  OutList.push_back(q_maf_for_anno, "q_maf_for_annoVec");
-  if(t_traitType == "binary" || t_traitType == "survival"){
-   if(t_traitType == "binary"){
-    OutList.push_back(MACCase_GroupVec, "MACCase_GroupVec");
-    OutList.push_back(MACControl_GroupVec, "MACCtrl_GroupVec");
-   }else if(t_traitType == "survival"){
-    OutList.push_back(MACCase_GroupVec, "MACEvent_GroupVec");
-    OutList.push_back(MACControl_GroupVec, "MACCensor_GroupVec");
-   }
-
-    OutList.push_back(genoSumMat, "genoSumMat");
-    OutList.push_back(gyVec, "gyVec");
-  }
+      OutList.push_back(genoSumMat, "genoSumMat");
+      OutList.push_back(gyVec, "gyVec");
+    }
 
     OutList.push_back(VarMat, "VarMat");	
     OutList.push_back(MAFVec, "MAFVec");	
     OutList.push_back(TstatVec_flip, "TstatVec_flip");	
-  //arma::mat scaled_m_VarInvMat_cond;
+    //arma::mat scaled_m_VarInvMat_cond;
     if(isCondition){
-  //std::cout << "okk5" << std::endl;
+      //std::cout << "okk5" << std::endl;
       arma::mat AdjCondMat = G1tilde_P_G2tilde_Weighted_Mat * (ptr_gSAIGEobj->m_VarInvMat_cond / (w0G2Mat_cond));
       arma::mat VarMatAdjCond = AdjCondMat * (G1tilde_P_G2tilde_Weighted_Mat.t());
       arma::vec TstatAdjCond = AdjCondMat * (ptr_gSAIGEobj->m_Tstat_cond % w0G2Vec_cond ); 
@@ -2120,64 +2109,64 @@ if(t_regionTestType == "BURDEN"){
     }
 
     if(!t_isFastTest){
-            iswriteOutput = true;
-     }else{
-        if(ptr_gSAIGEobj->m_flagSparseGRM_cur){
-            iswriteOutput = true;
-        }
-     }
-}
+      iswriteOutput = true;
+    }else{
+      if(ptr_gSAIGEobj->m_flagSparseGRM_cur){
+        iswriteOutput = true;
+      }
+    }
+  }
 
 
- int numofUR = q_anno_maf;
- int numofUR0;
- int mFirth = 0;
-if(t_isSingleinGroupTest){
- // OutList.push_back(pvalVec_val, "pvalVec");
- OutList.push_back(pvalVec, "pvalVec");
-if(iswriteOutput){
-  numofUR0 = writeOutfile_singleInGroup(t_isMoreOutput,
-      t_isImputation,
-      isCondition,
-      is_Firth,
-      mFirth,
-      is_FirthConverge,
-      t_traitType,
-      chrVec,
-      posVec,
-      markerVec,
-      refVec,
-      altVec,
-      altCountsVec,
-      altFreqVec,
-      imputationInfoVec,
-      missingRateVec,
-      BetaVec,
-      seBetaVec,
-      TstatVec,
-      varTVec,
-      pvalVec,
-      pvalNAVec,
-      isSPAConvergeVec,
-      Beta_cVec,
-      seBeta_cVec,
-      Tstat_cVec,
-      varT_cVec,
-      pval_cVec,
-      pvalNA_cVec,
-      AF_caseVec,
-      AF_ctrlVec,
-      N_caseVec,
-      N_ctrlVec,
-      N_case_homVec,
-      N_ctrl_hetVec,
-      N_case_hetVec,
-      N_ctrl_homVec,
-      N_Vec,
-      OutFile_singleInGroup);
- }else{
-  OutFile_singleInGroup_temp.open(g_outputFilePrefixSingleInGroup_temp.c_str(), std::ofstream::out);
-  numofUR0 = writeOutfile_singleInGroup(t_isMoreOutput,
+  int numofUR = q_anno_maf_weight;
+  int numofUR0;
+  int mFirth = 0;
+  if(t_isSingleinGroupTest){
+    // OutList.push_back(pvalVec_val, "pvalVec");
+    OutList.push_back(pvalVec, "pvalVec");
+  if(iswriteOutput){
+    numofUR0 = writeOutfile_singleInGroup(t_isMoreOutput,
+    t_isImputation,
+    isCondition,
+    is_Firth,
+    mFirth,
+    is_FirthConverge,
+    t_traitType,
+    chrVec,
+    posVec,
+    markerVec,
+    refVec,
+    altVec,
+    altCountsVec,
+    altFreqVec,
+    imputationInfoVec,
+    missingRateVec,
+    BetaVec,
+    seBetaVec,
+    TstatVec,
+    varTVec,
+    pvalVec,
+    pvalNAVec,
+    isSPAConvergeVec,
+    Beta_cVec,
+    seBeta_cVec,
+    Tstat_cVec,
+    varT_cVec,
+    pval_cVec,
+    pvalNA_cVec,
+    AF_caseVec,
+    AF_ctrlVec,
+    N_caseVec,
+    N_ctrlVec,
+    N_case_homVec,
+    N_ctrl_hetVec,
+    N_case_hetVec,
+    N_ctrl_homVec,
+    N_Vec,
+    OutFile_singleInGroup);
+  }else{
+    OutFile_singleInGroup_temp.open(g_outputFilePrefixSingleInGroup_temp.c_str(), std::ofstream::out);
+    numofUR0 = writeOutfile_singleInGroup(t_isMoreOutput,
       t_isImputation,
       isCondition,
       is_Firth,
@@ -2216,28 +2205,24 @@ if(iswriteOutput){
       N_ctrl_homVec,
       N_Vec,
       OutFile_singleInGroup_temp);
-  OutFile_singleInGroup_temp.close();
+    OutFile_singleInGroup_temp.close();
+  }//iswriteOutput
+  OutList.push_back(numofUR, "numofUR");
+  }
 
- }//iswriteOutput
- OutList.push_back(numofUR, "numofUR");
-}
+  OutList.push_back(iswriteOutput, "iswriteOutput");
 
-OutList.push_back(iswriteOutput, "iswriteOutput");
-
- if(t_isOutputMarkerList){
-	OutList.push_back(indicatorVec, "markerIndcatorVec");
- }
-
-  
+  if(t_isOutputMarkerList){
+    OutList.push_back(indicatorVec, "markerIndcatorVec");
+  }
 
   OutList.push_back(NumRare_GroupVec, "NumRare_GroupVec");
   OutList.push_back(NumUltraRare_GroupVec, "NumUltraRare_GroupVec");
 
+  if(t_regionTestType != "BURDEN" || t_isOutputMarkerList){
+    OutList.push_back(annoMAFIndicatorMat, "annoMAFIndicatorMat");
+  }
 
- if(t_regionTestType != "BURDEN" || t_isOutputMarkerList){
-  OutList.push_back(annoMAFIndicatorMat, "annoMAFIndicatorMat");
- }
-  
   return OutList;
 }
 
