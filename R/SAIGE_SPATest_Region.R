@@ -390,27 +390,26 @@ SAIGE.Region = function(mu,
           set_flagSparseGRM_cur_SAIGE(FALSE)
         }
 
-        cat("Dim weight ", dim(WEIGHT), "\n")
-        cat("length genoindex ", length(region$genoIndex),"\n")
-        cat("\n===== mainRegionInCPP dimension diagnostics =====\n")
-        cat("length(annolistsub):       ", length(annolistsub), "\n")
-        cat("length(maxMAFlist):        ", length(maxMAFlist), "\n")
-        cat("length(weightlist):        ", length(weightlist), "\n")
-        cat("weightlist values:         ", paste(weightlist, collapse=", "), "\n")
-        cat("annolistsub values:        ", paste(annolistsub, collapse=", "), "\n")
-        cat("Expected annoMAF combos (j*m):  ", length(annolistsub) * length(maxMAFlist), "\n")
-        cat("Expected full combos (j*m*r):   ", length(annolistsub) * length(maxMAFlist) * length(weightlist), "\n")
-        cat("dim(annoIndicatorMat):     ", dim(annoIndicatorMat), "\n")
-        cat("dim(BetaDist_weight_mat):  ", dim(BetaDist_weight_mat), "\n")
-        cat("nrow(BetaDist_weight_mat): ", nrow(BetaDist_weight_mat), "\n")
-        cat("nameofWeightlists:         ", paste(nameofWeightlists, collapse=", "), "\n")
-        cat("numberofWeightlists:       ", numberofWeightlists, "\n")
-        cat("is_weight_included:        ", is_weight_included, "\n")
-        cat("is_no_weight_in_groupTest: ", is_no_weight_in_groupTest, "\n")
-        cat("Sum 572 check — j*m*r would need: ", 572, " — actual: ", length(annolistsub) * length(maxMAFlist) * length(weightlist), "\n")
-        cat("MaxMAFlIST", maxMAFlist, "\n")
-        cat("=================================================\n\n")
-        
+        # Leaving this here as it might be useful to get sarted with MainRegionInCPP debugging
+        # cat("Dim weight ", dim(WEIGHT), "\n")
+        # cat("length genoindex ", length(region$genoIndex),"\n")
+        # cat("\n===== mainRegionInCPP dimension diagnostics =====\n")
+        # cat("length(annolistsub):       ", length(annolistsub), "\n")
+        # cat("length(maxMAFlist):        ", length(maxMAFlist), "\n")
+        # cat("length(weightlist):        ", length(weightlist), "\n")
+        # cat("weightlist values:         ", paste(weightlist, collapse=", "), "\n")
+        # cat("annolistsub values:        ", paste(annolistsub, collapse=", "), "\n")
+        # cat("Expected annoMAF combos (j*m):  ", length(annolistsub) * length(maxMAFlist), "\n")
+        # cat("Expected full combos (j*m*r):   ", length(annolistsub) * length(maxMAFlist) * length(weightlist), "\n")
+        # cat("dim(annoIndicatorMat):     ", dim(annoIndicatorMat), "\n")
+        # cat("dim(BetaDist_weight_mat):  ", dim(BetaDist_weight_mat), "\n")
+        # cat("nrow(BetaDist_weight_mat): ", nrow(BetaDist_weight_mat), "\n")
+        # cat("nameofWeightlists:         ", paste(nameofWeightlists, collapse=", "), "\n")
+        # cat("numberofWeightlists:       ", numberofWeightlists, "\n")
+        # cat("is_weight_included:        ", is_weight_included, "\n")
+        # cat("is_no_weight_in_groupTest: ", is_no_weight_in_groupTest, "\n")
+        # cat("maxMAFlist", maxMAFlist, "\n")
+        # cat("=================================================\n\n")
         
         outList = mainRegionInCPP(genoType, 
                                   region$genoIndex_prev, 
@@ -436,7 +435,6 @@ SAIGE.Region = function(mu,
                                   is_fastTest,
                                   is_output_moreDetails)
         
-        saveRDS(outList, "outList.rds")
         
         if (regionTestType == "BURDEN" & is_fastTest) {
           if (!is.null(outList$iswriteOutput)) {
@@ -628,114 +626,199 @@ SAIGE.Region = function(mu,
                 wadjVarSMat_cond_list[[ia]] = wadjVarSMat_cond	
               }
             }
+
             #print("outList$VarMat")
             #print(outList$VarMat)
             #gc()
             annoMAFIndVec = c()
+            resultCache    <- list()  
+            
             for (j in 1:length(annolistsub)) {
-                AnnoName = annolistsub[j]
-                maxMAF0 = outList$q_maf_for_annoVec[j]
-                isPolyRegion = TRUE
+                AnnoName     <- annolistsub[j]
+                maxMAF0      <- outList$q_maf_for_annoVec[j]
+                isPolyRegion <- TRUE
+
                 for (m in 1:length(maxMAFlist)) {
-                    jm = (j - 1) * (length(maxMAFlist)) + m
-                    maxMAFName = maxMAFlist[m]
+                    jm         <- (j - 1) * length(maxMAFlist) + m
+                    maxMAFName <- maxMAFlist[m]
+
                     for (r in 1:length(weightlist)) {
+                        jmr <- (j - 1) * length(maxMAFlist) * length(weightlist) +
+                              (m - 1) * length(weightlist) + r
+
                         if (m <= maxMAF0) {
-                            tempPos = which(annoMAFIndicatorMat[, jm] == 1)
+                            tempPos <- which(annoMAFIndicatorMat[, jmr] == 1)
+
                             if (length(tempPos) > 0) {
-                                isPolyRegion = TRUE
-                                annoMAFIndVec = c(annoMAFIndVec, jm)
-                                jmr = (j - 1) * (length(maxMAFlist)) * (length(weightlist)) + (m - 1) * (length(maxMAFlist)) + r
-                                weightName = weightlist[r]
-                                wadjVarSMat = wadjVarSMat_list[[r]]
-                                wStatVec = wStatMat[, r]
-                                AnnoWeights = AnnoWeightsMat[, r]
-                                Phi = wadjVarSMat[tempPos, tempPos, drop = F]
-                                Score = wStatVec[tempPos]
-                                p.new = adjPVec[tempPos]
+                                isPolyRegion <- TRUE
 
-                                if (traitType == "binary") {
-                                    g.sum = outList$genoSumMat[, jmr]
-                                    q.sum <- sum(outList$gyVec[tempPos] * AnnoWeights[tempPos])
-                                    mu.a = mu
+                                if (sum(outList$genoSumMat[, jmr]) == 0) next
 
-                                    re_phi = get_newPhi_scaleFactor(q.sum, mu.a, g.sum, p.new, Score, Phi, regionTestType)
-                                    Phi = re_phi$val
+                                weightName    <- weightlist[r]
+                                wadjVarSMat <- wadjVarSMat_list[[r]]
+                                wStatVec    <- wStatMat[, r]
+                                AnnoWeights <- AnnoWeightsMat[, r]
+                                Phi         <- wadjVarSMat[tempPos, tempPos, drop = FALSE] 
+                                Score       <- wStatVec[tempPos]
+                                p.new       <- adjPVec[tempPos]
+
+                                # ─ Guard 1: entire Phi is all zeros ─
+                                if (all(Phi == 0 | is.na(Phi))) next 
+
+                                # ─ Guard 2: Phi has all-zero rows/columns ─
+                                nonzero_dim <- which(rowSums(Phi != 0 & !is.na(Phi)) > 0) # Some 0 values can come directly from outList$GyVec
+
+                                if (length(nonzero_dim) == 0) {
+                                    next
+                                } else if (length(nonzero_dim) < length(tempPos)) {
+                                    tempPos <- tempPos[nonzero_dim]
+                                    Phi     <- Phi[nonzero_dim, nonzero_dim, drop = FALSE]
+                                    Score   <- Score[nonzero_dim]
+                                    p.new   <- p.new[nonzero_dim]
                                 }
 
-                                groupOutList = get_SKAT_pvalue_Burden_SKAT_ACATV(Score, Phi, p.new, AnnoWeights[tempPos])
-                                print("weightName")
-                                print(weightName)
-                                print("regionName")
-                                print(regionName)
-                                print("groupOutList")
-                                print(groupOutList)
+                                if (traitType == "binary") {
+                                    g.sum  <- outList$genoSumMat[, jmr]
+                                    q.sum  <- sum(outList$gyVec[tempPos] * AnnoWeights[tempPos])
+                                    mu.a   <- mu
 
-                                Pvalue_ACATO = get_CCT_pvalue(c(groupOutList$Pvalue_ACATV, groupOutList$Pvalue_Burden, groupOutList$Pvalue_SKAT))
-                                resultDF = data.frame(
-                                    Region = regionName,
-                                    Group = AnnoName,
-                                    max_MAF = maxMAFName,
-                                    Weight = weightName,
-                                    Pvalue_ACATO = Pvalue_ACATO,
-                                    Pvalue_ACATV = groupOutList$Pvalue_ACATV,
-                                    Pvalue_Burden = groupOutList$Pvalue_Burden,
-                                    Pvalue_SKAT = groupOutList$Pvalue_SKAT,
-                                    BETA_Burden = groupOutList$BETA_Burden,
-                                    SE_Burden = groupOutList$SE_Burden
+                                    nonzero_idx <- which(AnnoWeights[tempPos] != 0)
+                                    n_total     <- length(tempPos)
+
+                                    if (length(nonzero_idx) == 0) { # This should not be possible after (((if (sum(outList$genoSumMat[, jmr]) == 0) next)))
+                                        # Leaving this here and catching unexpected behavior
+                                        # No non-zero weights — Phi becomes all zeros; skip this jmr too
+                                        message(
+                                            sprintf(
+                                                "[WARNING] Empty nonzero_idx detected | j=%s | m=%s | r=%s | jmr=%s",
+                                                j, m, r, jmr
+                                            )
+                                        )
+                                        next
+
+                                    } else if (length(nonzero_idx) < n_total) {
+                                        Phi_sub   <- wadjVarSMat[tempPos[nonzero_idx], tempPos[nonzero_idx], drop = FALSE]
+                                        Score_sub <- wStatVec[tempPos[nonzero_idx]]
+                                        p.new_sub <- adjPVec[tempPos[nonzero_idx]]
+
+                                        re_phi <- get_newPhi_scaleFactor(
+                                            q.sum, mu.a, g.sum,
+                                            p.new_sub, Score_sub, Phi_sub,
+                                            regionTestType
+                                        )
+
+                                        Phi_full <- matrix(0, nrow = n_total, ncol = n_total)
+                                        Phi_full[nonzero_idx, nonzero_idx] <- re_phi$val
+                                        Phi <- Phi_full
+
+                                    } else {
+                                        re_phi <- get_newPhi_scaleFactor(
+                                            q.sum, mu.a, g.sum,
+                                            p.new, Score, Phi,
+                                            regionTestType
+                                        )
+                                        Phi <- re_phi$val
+                                    }
+                                }
+
+                                # ─ Guard 3: Phi all zeros after binary scaling ─
+                                if (all(Phi == 0 | is.na(Phi))) next
+
+                                groupOutList <- get_SKAT_pvalue_Burden_SKAT_ACATV(
+                                    Score, Phi, exp(p.new), AnnoWeights[tempPos]
                                 )
 
+                                Pvalue_ACATO <- get_CCT_pvalue(c(
+                                    groupOutList$Pvalue_ACATV,
+                                    groupOutList$Pvalue_Burden,
+                                    groupOutList$Pvalue_SKAT
+                                ))
+
+                                resultDF <- data.frame(
+                                    Region        = regionName,
+                                    Group         = AnnoName,
+                                    max_MAF       = maxMAFName,
+                                    Weight        = weightName,
+                                    Pvalue_ACATO  = Pvalue_ACATO,
+                                    Pvalue_ACATV  = groupOutList$Pvalue_ACATV,
+                                    Pvalue_Burden = groupOutList$Pvalue_Burden,
+                                    Pvalue_SKAT   = groupOutList$Pvalue_SKAT,
+                                    BETA_Burden   = groupOutList$BETA_Burden,
+                                    SE_Burden     = groupOutList$SE_Burden
+                                )
+
+                                # ─ Conditional analysis block -
                                 if (isCondition) {
-                                    if (traitType == "binary") {
-                                        G1tilde_P_G2tilde_Mat_scaled = t(t((outList$G1tilde_P_G2tilde_Weighted_Mat[tempPos, , drop = F]) * sqrt(as.vector(re_phi$scaleFactor))) * sqrt(as.vector(outList$scalefactor_G2_cond)))
-                                        adjCondTemp = G1tilde_P_G2tilde_Mat_scaled %*% outList$VarInvMat_G2_cond_scaled
-                                        VarMatAdjCond = adjCondTemp %*% t(G1tilde_P_G2tilde_Mat_scaled)
-                                        TstatAdjCond = adjCondTemp %*% (outList$Tstat_G2_cond * outList$G2_Weight_cond)
-                                        Phi_cond = re_phi$val - diag(VarMatAdjCond)
-                                        Score_cond = Score - TstatAdjCond
+                                    if (traitType == "binary" | traitType == "survival") {
+                                        # Scale G1tilde_P_G2tilde using re_phi$scaleFactor.
+                                        # NOTE: when length(nonzero_idx) < n_total, re_phi was fitted
+                                        # on the subset; the sqrt-scaling below applies only to those
+                                        # rows, which is consistent with how Phi_full was constructed.
+                                        G1tilde_P_G2tilde_Mat_scaled <- t(t((
+                                            outList$G1tilde_P_G2tilde_Weighted_Mat[tempPos, , drop = FALSE]
+                                        ) * sqrt(as.vector(re_phi$scaleFactor))
+                                        ) * sqrt(as.vector(outList$scalefactor_G2_cond)))
+
+                                        adjCondTemp  <- G1tilde_P_G2tilde_Mat_scaled %*%
+                                                        outList$VarInvMat_G2_cond_scaled
+                                        VarMatAdjCond <- adjCondTemp %*% t(G1tilde_P_G2tilde_Mat_scaled)
+                                        TstatAdjCond  <- adjCondTemp %*%
+                                                        (outList$Tstat_G2_cond * outList$G2_Weight_cond)
+
+                                        Phi_cond  <- re_phi$val - diag(VarMatAdjCond)
+                                        Score_cond <- Score - TstatAdjCond
+
                                     } else {
-                                        wStatVec_cond = wStatVec_cond_Mat[, r]
-                                        wadjVarSMat_cond = wadjVarSMat_cond_list[[r]]
-                                        Score_cond = wStatVec_cond[tempPos]
-                                        Phi_cond = wadjVarSMat_cond[tempPos, tempPos]
+                                        Score_cond <- wStatVec_cond[tempPos]
+                                        Phi_cond   <- wadjVarSMat_cond[tempPos, tempPos]
                                     }
 
-                                    P_cond = pchisq(Score_cond^2 / diag(Phi_cond), df = 1, lower.tail = F)
-                                    groupOutList_cond = get_SKAT_pvalue_Burden_SKAT_ACATV(Score_cond, Phi_cond, P_cond, AnnoWeights)
+                                    groupOutList_cond <- get_SKAT_pvalue(
+                                        Score_cond, Phi_cond, r.corr, regionTestType
+                                    )
 
-                                    resultDF$Pvalue_ACATV_cond = groupOutList_cond$Pvalue_ACATV
-                                    resultDF$Pvalue_Burden_cond = groupOutList_cond$Pvalue_Burden
-                                    resultDF$Pvalue_SKAT_cond = groupOutList_cond$Pvalue_SKAT
-                                    resultDF$BETA_Burden_cond = groupOutList_cond$BETA_Burden
-                                    resultDF$SE_Burden_cond = groupOutList_cond$SE_Burden
+                                    resultDF$Pvalue_cond        <- groupOutList_cond$Pvalue_SKATO
+                                    resultDF$Pvalue_Burden_cond <- groupOutList_cond$Pvalue_Burden
+                                    resultDF$Pvalue_SKAT_cond   <- groupOutList_cond$Pvalue_SKAT
+                                    resultDF$BETA_Burden_cond   <- groupOutList_cond$BETA_Burden
+                                    resultDF$SE_Burden_cond     <- groupOutList_cond$SE_Burden
                                 } # if (isCondition)
 
-                                pval.Region = rbind.data.frame(pval.Region, resultDF)
+                                pval.Region   <- rbind.data.frame(pval.Region, resultDF)
+                                annoMAFIndVec <- c(annoMAFIndVec, jmr)  # append only on successful row add
 
-                            } else { # if (length(tempPos) > 0)
-                                isPolyRegion = FALSE
+                                cache_key                <- paste(j, r, sep = "_")
+                                resultCache[[cache_key]] <- resultDF
+
+                            } else { # length(tempPos) == 0
+                                isPolyRegion <- FALSE
                             }
 
-                        } else { # if (m <= maxMAF0)
+                        } else { # m > maxMAF0 — reuse cached result
                             if (isPolyRegion) {
-                                annoMAFIndVec = c(annoMAFIndVec, jm)
-                                resultDF$Region = regionName
-                                resultDF$Group = AnnoName
-                                resultDF$max_MAF = maxMAFName
-                                resultDF$Weight = weightName
-                                pval.Region = rbind.data.frame(pval.Region, resultDF)
+                                cache_key <- paste(j, r, sep = "_")
+                                cached    <- resultCache[[cache_key]]
+                                if (!is.null(cached)) {
+                                    cached$Region  <- regionName
+                                    cached$Group   <- AnnoName
+                                    cached$max_MAF <- maxMAFName
+                                    cached$Weight  <- weightlist[r]
+                                    pval.Region    <- rbind.data.frame(pval.Region, cached)
+                                    annoMAFIndVec  <- c(annoMAFIndVec, jmr)
+                                }
                             }
-                        } # if (m <= maxMAF0)
+                        }
 
-                    } # for (r in 1:length(weightlist))
-                } # for (m in 1:length(maxMAFlist))
-            } # for (j in 1:length(annolist))
-            
-            
+                    } # r loop
+                } # m loop
+            } # j loop
+
+
+
+
             gc()
             print("pval.Region")
-            print(pval.Region)
-            
+            # print(pval.Region)
             
             #if(regionTestType != "BURDEN"){
             

@@ -103,7 +103,6 @@ checkGroupFile <- function(groupFile) {
       weightname = c(weightname, "WEIGHT")
       
     } else {
-      # split on both ':' and ',' to support weight:a and weight,a
       parts    = unlist(strsplit(type, split="[,:]"))
       typename = parts[1]
       
@@ -118,8 +117,12 @@ checkGroupFile <- function(groupFile) {
           marker_group_line = readLines(gf, n = 1)
           line = line + 1
           
-          if (length(marker_group_line) == 0) {
-            stop("Error, group file has empty lines\n")
+          # if (length(marker_group_line) == 0) {
+          #   stop("Error, group file has empty lines\n")
+          # }
+          if (length(marker_group_line) == 0) { # Condition above does not handle the last weight line well and leads to error (tested on a file case with a single region var,anno,weight)
+            isweight = FALSE
+            break
           }
           
           marker_group_line_list = strsplit(marker_group_line, split="[\ \t]+")[[1]]

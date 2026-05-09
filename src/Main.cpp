@@ -1250,7 +1250,8 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   double cctpval;
   double cctpval_cond;
   // cycle for q0 markers // unsigned int q0 = t_genoIndex.size();
-  for(unsigned int i = 0; i < q0; i++) {
+  for (unsigned int i = 0; i < q0 && i < 20; i++) {
+    // for(unsigned int i = 0; i < q0; i++) {
     // std::cout << "Q0 LOOP " <<  i << std::endl;
     // marker-level information
     double altFreq, altCounts, missingRate, imputeInfo;
@@ -1338,7 +1339,37 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
       if(t_isIncludeNoWeights){
         w0_vec(q_weight_customize+q_weight_beta) = 1;
       }
-      
+
+      // #include <iostream>
+      // #include <algorithm> // for std::min
+
+      // auto print_vec_summary = [&](const std::string& label) {
+      //     int n = w0_vec.size();
+      //     int k = std::min(20, n);
+
+      //     std::cout << label << " | size=" << n << " | first " << k << ": ";
+
+      //     for(int i = 0; i < k; ++i){
+      //         std::cout << w0_vec(i);
+      //         if(i < k - 1) std::cout << " ";
+      //     }
+      //     std::cout << "\n";
+      // };
+      // print_vec_summary("BEFORE");
+      // for(unsigned int w = 0; w < q_weight_customize; w++){
+      //     w0_vec(w) = t_weight(i,w); 
+      // }
+      // print_vec_summary("AFTER custom");
+      // for(unsigned int w = 0; w < q_weight_beta; w++){
+      //     boost::math::beta_distribution<> beta_dist(t_Beta_param(w,0), t_Beta_param(w,1));
+      //     w0_vec(w+q_weight_customize) = boost::math::pdf(beta_dist, MAF);
+      // }
+      // print_vec_summary("AFTER beta");
+      // if(t_isIncludeNoWeights){
+      //     w0_vec(q_weight_customize+q_weight_beta) = 1;
+      // }
+      // print_vec_summary("FINAL");
+
       // std::cout << "w0_vec: " << w0_vec.t();
 
       // if(isWeightCustomized){
@@ -1372,34 +1403,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
         if(t_regionTestType != "BURDEN" || t_isSingleinGroupTest){ //perform single-variant assoc tests  
           indexZeroVec_arma = arma::conv_to<arma::uvec>::from(indexZeroVec);
           
-          // Rcpp::Rcout << "[DEBUG] Pre-call check:"
-          //   << " i=" << i
-          //   << " i1InChunk=" << i1InChunk
-          //   << " GVec.n_elem=" << GVec.n_elem
-          //   << " t_n=" << t_n
-          //   << " indexNonZeroVec_arma.n_elem=" << indexNonZeroVec_arma.n_elem
-          //   << " indexZeroVec_arma.n_elem=" << indexZeroVec_arma.n_elem
-          //   << " MAC=" << MAC
-          //   << " MAF=" << MAF
-          //   << " altFreq=" << altFreq
-          //   << " missingRate=" << missingRate
-          //   << std::endl;
-          
-          // Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER 
-          //   << " MAC=" << MAC
-          //   << " condition=" << (MAC <= g_MACCutoffforER)
-          //   << std::endl;
-
-          // Rcpp::Rcout << "[DEBUG] g_MACCutoffforER=" << g_MACCutoffforER
-          //   << " useERbranch=" << (MAC <= g_MACCutoffforER && t_traitType == "binary")
-          //   << " varRatioVal=" << ptr_gSAIGEobj->m_varRatioVal
-          //   << " hasVarRatio=" << hasVarRatio
-          //   << std::endl;
-
-          double effectiveMACCutoff = std::max((double)g_MACCutoffforER, 20.0);
-          if(MAC <= effectiveMACCutoff && t_traitType == "binary"){
-          // if(MAC <=  g_MACCutoffforER && t_traitType == "binary"`){
-            Rcpp::Rcout << "[DEBUG] Using SPA (ER) branch" << std::endl;
+          if(MAC <=  g_MACCutoffforER && t_traitType == "binary"){
             Unified_getMarkerPval(GVec,false, // bool t_isOnlyOutputNonZero,
                                   indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, 
                                   Tstat, gy, varT, altFreq, isSPAConverge, gtildeVec, is_gtilde, true, 
@@ -1407,7 +1411,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
                                   varT_c, G1tilde_P_G2tilde_Vec, is_Firth, is_FirthConverge, true, 
                                   false, ptr_gSAIGEobj->m_flagSparseGRM_cur);
           }else{
-            Rcpp::Rcout << "[DEBUG] Using standard branch" << std::endl;
             Unified_getMarkerPval(GVec, false, // bool t_isOnlyOutputNonZero,
                                   indexNonZeroVec_arma, indexZeroVec_arma, Beta, seBeta, pval, pval_noSPA, 
                                   Tstat, gy, varT, altFreq, isSPAConverge, gtildeVec, is_gtilde, true, 
@@ -1461,41 +1464,71 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
         MAFIndicatorVec.elem( find(maxMAFVec >= MAF) ).ones();	
         annoMAFIndicatorVec.zeros();
         
-        for(unsigned int j = 0; j < q_anno; j++){  // unsigned int q_anno = annoIndicatorMat.n_cols;
+        for(unsigned int j = 0; j < q_anno; j++){
           if(annoIndicatorMat(i,j) == 1){
             maxMAFperAnno(j) = std::max(maxMAFperAnno(j), MAF);
             for(unsigned int m = 0; m < q_maf; m++){
               if(MAFIndicatorVec(m) == 1){
-                //arma::vec timeoutput3ab0 = getTime();
-                // std::cout << "q_maf " << m << std::endl;
-                jm = j*q_maf + m;	
-                // std::cout << "jm " << jm << std::endl;
-                annoMAFIndicatorVec(jm) = 1;
-                MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
-                
-                if(t_traitType == "binary" || t_traitType == "survival"){
-                  MACCase_GroupVec(jm) = MACCase_GroupVec(jm) + MACcasegroup;
-                  MACControl_GroupVec(jm) = MACControl_GroupVec(jm) + MACcontrolgroup;
-                  //genoSumMat.col(jm) = genoSumMat.col(jm) + w0*GVec;
-                }
-                
+                jm = j*q_maf + m;
+                // annoMAFIndicatorVec(jm) = 1;
+                // MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
+
                 for(unsigned int r = 0; r < q_weight; r++){
                   jmr = j*q_maf*q_weight + m*q_weight + r;
+
+                  if(t_traitType == "binary" || t_traitType == "survival"){
+                    MACCase_GroupVec(jmr) = MACCase_GroupVec(jmr) + MACcasegroup;
+                    MACControl_GroupVec(jmr) = MACControl_GroupVec(jmr) + MACcontrolgroup;
+                  }
+
+                  annoMAFIndicatorVec(jmr) = 1;
+                  MAC_GroupVec(jmr) = MAC_GroupVec(jmr) + MAC;
                   w0 = w0_vec(r);
+
                   for(unsigned int k = 0; k < nNonZero; k++){
                     genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + GVec(indexNonZeroVec_arma(k));
                     genoSumMat(indexNonZeroVec_arma(k), jmr) = genoSumMat(indexNonZeroVec_arma(k), jmr) + w0*GVec(indexNonZeroVec_arma(k));
                   }
-                  NumRare_GroupVec(jmr) = NumRare_GroupVec(jmr) + 1;		
-                } // for(unsigned int r = 0; r < q_weight; r++){
-                //std::cout << "jm " << jm << std::endl;
-                //arma::vec timeoutput3ab2 = getTime();
-                // printTime(timeoutput3ab1, timeoutput3ab2, "Unified_getOneMarker 3b2");
+                  NumRare_GroupVec(jmr) = NumRare_GroupVec(jmr) + 1;
+
+                } // for r
               }
             }
           }
-        } // for(unsigned int j = 0; j < q_anno; j++){
+        } // for j
         // std::cout << "HEREREREREE 2d" << std::endl;
+
+
+        // for(unsigned int j = 0; j < q_anno; j++){
+        //   if(annoIndicatorMat(i,j) == 1){
+        //     maxMAFperAnno(j) = std::max(maxMAFperAnno(j), MAF);
+        //     for(unsigned int m = 0; m < q_maf; m++){
+        //       if(MAFIndicatorVec(m) == 1){
+        //         jm = j*q_maf + m;
+        //         annoMAFIndicatorVec(jm) = 1;
+        //         MAC_GroupVec(jm) = MAC_GroupVec(jm) + MAC;
+
+        //         if(t_traitType == "binary" || t_traitType == "survival"){
+        //           MACCase_GroupVec(jm) = MACCase_GroupVec(jm) + MACcasegroup;
+        //           MACControl_GroupVec(jm) = MACControl_GroupVec(jm) + MACcontrolgroup;
+        //         }
+
+        //         for(unsigned int r = 0; r < q_weight; r++){
+        //           jmr = j*q_maf*q_weight + m*q_weight + r;
+        //           w0 = w0_vec(r);
+
+        //           for(unsigned int k = 0; k < nNonZero; k++){
+        //             genoSumcount_noweight(jmr) = genoSumcount_noweight(jmr) + GVec(indexNonZeroVec_arma(k));
+        //             genoSumMat(indexNonZeroVec_arma(k), jmr) = genoSumMat(indexNonZeroVec_arma(k), jmr) + w0*GVec(indexNonZeroVec_arma(k));
+        //           }
+        //           NumRare_GroupVec(jmr) = NumRare_GroupVec(jmr) + 1;
+
+        //         } // for r
+        //       }
+        //     }
+        //   }
+        // } // for j
+        // // std::cout << "HEREREREREE 2d" << std::endl;
 
         //arma::vec timeoutput3ac = getTime();
         // printTime(timeoutput3ab, timeoutput3ac, "Unified_getOneMarker 3c");
@@ -1550,9 +1583,10 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             for(unsigned int m = 0; m < q_maf; m++){
               if(MAFIndicatorVec(m) == 1){
                 jm = j*q_maf + m;
-                annoMAFIndicatorVec(jm) = 2;
+                
                 for(unsigned int r = 0; r < q_weight; r++){
                   jmr = j*q_maf*q_weight + m*q_weight + r;
+                  annoMAFIndicatorVec(jmr) = 2;
                   w0 = w0_vec(r);
                   if(q_weight_beta > 0 && r >= q_weight_customize){
                     w0 = 1;
@@ -1812,6 +1846,17 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   arma::mat VarMat;
   //(i1, i1);
 
+  // Leaving this here to trace down 0 colSums after weighted genotyping 
+  // for(unsigned int jmr = 0; jmr < genoSumMat.n_cols; jmr++){
+  //   double colSum = arma::sum(arma::abs(genoSumMat.col(jmr)));
+  //   if(colSum == 0){
+  //     std::cout << "[DEBUG] genoSumMat col " << jmr << " sum=0"
+  //               << "  NumRare_GroupVec(jmr)=" << NumRare_GroupVec(jmr)
+  //               << "  annoMAFIndicatorVec corresponding entries..." << std::endl;
+  //     break; // just report the first one
+  //   }
+  // }
+
   if(t_regionTestType != "BURDEN"){
     VarMat.resize(i1, i1);	
     if(nchunks == 1){
@@ -1880,7 +1925,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
     arma::uvec jtemp = find(maxMAFVec >= maxMAFperAnno(j));
     q_maf_for_anno(j) = jtemp.min();
   }
-  std::cout << "q_maf_for_anno: " << q_maf_for_anno.t() << std::endl;
+  // std::cout << "q_maf_for_anno: " << q_maf_for_anno.t() << std::endl;
 
   //If only conduct Burden test
   //arma::vec BURDEN_pval_Vec(q_anno_maf);
@@ -2074,7 +2119,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
     //printTime(timeoutput2, timeoutput3, "burden test done");
   }else{
     q_maf_for_anno = q_maf_for_anno + 1;
-    std::cout << "q_maf_for_anno: " << q_maf_for_anno.t() << std::endl;
     OutList.push_back(MAC_GroupVec, "MAC_GroupVec");
     OutList.push_back(q_maf_for_anno, "q_maf_for_annoVec");
     if(t_traitType == "binary" || t_traitType == "survival"){
