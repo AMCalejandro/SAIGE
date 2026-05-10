@@ -814,6 +814,10 @@ SAIGE.Region = function(mu,
             } # j loop
 
 
+            if (is.null(pval.Region) || nrow(pval.Region) == 0) {
+              print('ALL ZEROS GENOTYPE MATRIX')
+            }
+              next # Catch all zero genotype matrix here - I found this in artificially made genotypes only
 
 
             gc()
