@@ -1250,8 +1250,8 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   double cctpval;
   double cctpval_cond;
   // cycle for q0 markers // unsigned int q0 = t_genoIndex.size();
-  for (unsigned int i = 0; i < q0 && i < 20; i++) {
-    // for(unsigned int i = 0; i < q0; i++) {
+  // for (unsigned int i = 0; i < q0 && i < 20; i++) {
+  for(unsigned int i = 0; i < q0; i++) {
     // std::cout << "Q0 LOOP " <<  i << std::endl;
     // marker-level information
     double altFreq, altCounts, missingRate, imputeInfo;
