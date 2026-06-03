@@ -652,7 +652,7 @@ SAIGE.Region = function(mu,
                             if (length(tempPos) > 0) {
                                 isPolyRegion <- TRUE
 
-                                if (sum(outList$genoSumMat[, jmr]) == 0) next
+                                if (traitType == "binary" && sum(outList$genoSumMat[, jmr]) == 0) next
 
                                 weightName    <- weightlist[r]
                                 wadjVarSMat <- wadjVarSMat_list[[r]]
