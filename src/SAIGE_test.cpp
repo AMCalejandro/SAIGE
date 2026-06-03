@@ -1208,49 +1208,88 @@ void SAIGEClass::set_isnoadjCov_cur(bool t_isnoadjCov_cur){
         m_isnoadjCov_cur = t_isnoadjCov_cur;
 }
 
+// arma::vec SAIGEClass::getPCG1ofSigmaAndGtilde(arma::vec& bVec, int maxiterPCG, double tolPCG) {
+//     int Nnomissing = m_spSigmaMat.n_rows;
+//     arma::vec xVec(Nnomissing, arma::fill::zeros); // Initialize xVec to zeros
+//     arma::vec rVec = bVec; // Residual vector
+//     arma::vec zVec(Nnomissing);
+//     //arma::vec minvVec = 1.0 / spsigma.diag(); // Preconditioner (reciprocal of diagonal elements)
+// arma::vec minvVec = 1.0 / m_diagSigma; // Convert diagonal view to dense vector
+//     //m_diagSigma.print("m_diagSigma");
+//     zVec = minvVec % rVec; // Apply preconditioner
+//     double sumr2 = arma::dot(rVec, rVec); // Initial residual norm
+//     arma::vec pVec = zVec; // Search direction
+
+//     int iter = 0;
+//     while (sumr2 > tolPCG && iter < maxiterPCG) {
+//         iter++;
+//         arma::vec ApVec = m_spSigmaMat * pVec; // Sparse matrix-vector multiplication
+// 	//ApVec.print("ApVec");
+//         double alpha = arma::dot(rVec, zVec) / arma::dot(pVec, ApVec); // Step size
+// 	//std::cout << "alpha" << alpha << std::endl;
+//         //pVec.print("pVec");
+// 	//xVec += alpha * pVec; // Update solution
+//         xVec = xVec + alpha * pVec;
+	
+// 	arma::vec r1Vec = rVec - alpha * ApVec; // Update residual
+
+//         arma::vec z1Vec = minvVec % r1Vec; // Apply preconditioner to new residual
+//         double beta = arma::dot(z1Vec, r1Vec) / arma::dot(zVec, rVec); // Update beta
+
+//         pVec = z1Vec + beta * pVec; // Update search direction
+//         zVec = z1Vec; // Update preconditioned residual
+//         rVec = r1Vec; // Update residual
+// 	//xVec.print("xVec");
+//         sumr2 = arma::dot(rVec, rVec); // Update residual norm
+//     }
+
+//     if (iter >= maxiterPCG) {
+//         std::cout << "PCG in getPCG1ofSigmaAndGtilde did not converge. You may increase maxiter number." << std::endl;
+//     }
+
+//     //std::cout << "Iterations from getPCG1ofSigmaAndGtilde: " << iter << std::endl;
+//     return xVec;
+// }
+
+
 arma::vec SAIGEClass::getPCG1ofSigmaAndGtilde(arma::vec& bVec, int maxiterPCG, double tolPCG) {
     int Nnomissing = m_spSigmaMat.n_rows;
-    arma::vec xVec(Nnomissing, arma::fill::zeros); // Initialize xVec to zeros
-    arma::vec rVec = bVec; // Residual vector
-    arma::vec zVec(Nnomissing);
-    //arma::vec minvVec = 1.0 / spsigma.diag(); // Preconditioner (reciprocal of diagonal elements)
-arma::vec minvVec = 1.0 / m_diagSigma; // Convert diagonal view to dense vector
-    //m_diagSigma.print("m_diagSigma");
-    zVec = minvVec % rVec; // Apply preconditioner
-    double sumr2 = arma::dot(rVec, rVec); // Initial residual norm
-    arma::vec pVec = zVec; // Search direction
-
+    arma::vec xVec(Nnomissing, arma::fill::zeros);
+    arma::vec rVec = bVec;
+    
+    arma::vec minvVec = 1.0 / arma::clamp(m_diagSigma, 1e-8, arma::datum::inf);
+    arma::vec zVec = minvVec % rVec;
+    arma::vec pVec = zVec;
+    
+    // Use RELATIVE residual norm for convergence
+    double b_norm2 = arma::dot(bVec, bVec);
+    double tol2 = (b_norm2 > 0) ? (tolPCG * tolPCG * b_norm2) : (tolPCG * tolPCG);
+    double rz = arma::dot(rVec, zVec);
+    double sumr2 = arma::dot(rVec, rVec);
+    
     int iter = 0;
-    while (sumr2 > tolPCG && iter < maxiterPCG) {
+    while (sumr2 > tol2 && iter < maxiterPCG) {
         iter++;
-        arma::vec ApVec = m_spSigmaMat * pVec; // Sparse matrix-vector multiplication
-	//ApVec.print("ApVec");
-        double alpha = arma::dot(rVec, zVec) / arma::dot(pVec, ApVec); // Step size
-	//std::cout << "alpha" << alpha << std::endl;
-        //pVec.print("pVec");
-	//xVec += alpha * pVec; // Update solution
-        xVec = xVec + alpha * pVec;
-	
-	arma::vec r1Vec = rVec - alpha * ApVec; // Update residual
-
-        arma::vec z1Vec = minvVec % r1Vec; // Apply preconditioner to new residual
-        double beta = arma::dot(z1Vec, r1Vec) / arma::dot(zVec, rVec); // Update beta
-
-        pVec = z1Vec + beta * pVec; // Update search direction
-        zVec = z1Vec; // Update preconditioned residual
-        rVec = r1Vec; // Update residual
-	//xVec.print("xVec");
-        sumr2 = arma::dot(rVec, rVec); // Update residual norm
+        arma::vec ApVec = m_spSigmaMat * pVec;
+        double pAp = arma::dot(pVec, ApVec);
+        if (std::abs(pAp) < 1e-15) break;
+        double alpha = rz / pAp;
+        xVec += alpha * pVec;
+        rVec -= alpha * ApVec;
+        arma::vec z1Vec = minvVec % rVec;
+        double rz_new = arma::dot(z1Vec, rVec);
+        double beta = rz_new / rz;
+        pVec = z1Vec + beta * pVec;
+        zVec = z1Vec;
+        rz = rz_new;
+        sumr2 = arma::dot(rVec, rVec);
     }
-
     if (iter >= maxiterPCG) {
-        std::cout << "PCG in getPCG1ofSigmaAndGtilde did not converge. You may increase maxiter number." << std::endl;
+        std::cout << "PCG in getPCG1ofSigmaAndGtilde did not converge after " 
+                  << iter << " iters. sumr2=" << sumr2 << " tol2=" << tol2 << std::endl;
     }
-
-    //std::cout << "Iterations from getPCG1ofSigmaAndGtilde: " << iter << std::endl;
     return xVec;
 }
-
 
 
 }
