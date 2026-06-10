@@ -1875,6 +1875,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   std::vector<std::string> BURDEN_pval_cVec(q_anno_maf_weight, "NA");
   //BURDEN_pval_cVec.fill(-1.0);
   std::vector<std::string> BURDEN_AnnoName_Vec(q_anno_maf_weight);
+  std::vector<std::string> BURDEN_WeightName_Vec(q_anno_maf_weight);
   std::vector<std::string> BURDEN_maxMAFName_Vec(q_anno_maf_weight);
   std::vector<double> BURDEN_Beta_Vec(q_anno_maf_weight);
   std::vector<double> BURDEN_seBeta_Vec(q_anno_maf_weight);
@@ -1904,10 +1905,13 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
       for(unsigned int m = 0; m < q_maf; m++){
         maxMAFName = maxMAFVec(m); 
         jm = j*q_maf+m;
-        i = jm;
+        std::string WeightName = "NA";
+        // i = jm;
         if(m <= q_maf_m){
           for(unsigned int r = 0; r < q_weight; r++){
             jmr = j*q_maf*q_weight + m*q_weight + r;
+            i = jmr;
+            WeightName = weightStringVec[r];
             arma::vec genoSumVec = genoSumMat.col(jmr);
             int n = genoSumVec.size();
             arma::uvec indexNonZeroVec_arma = arma::find(genoSumVec != 0);
@@ -1977,6 +1981,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
               }
 
               BURDEN_AnnoName_Vec.at(i) = AnnoName;
+              BURDEN_WeightName_Vec.at(i) = WeightName;
               std::string str = std::to_string(maxMAFName);
               str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
               BURDEN_maxMAFName_Vec.at(i) = str;
@@ -1996,6 +2001,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
               BURDEN_seBeta_cVec.at(i) = seBeta_c;
             }
             BURDEN_AnnoName_Vec.at(i) = AnnoName;
+            BURDEN_WeightName_Vec.at(i) = WeightName;
             BURDEN_maxMAFName_Vec.at(i) = std::to_string(maxMAFName);
             BURDEN_pval_Vec.at(i) = pval;
             BURDEN_Beta_Vec.at(i) = Beta;
@@ -2004,6 +2010,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
         }
       }
     }
+    
     std::vector<double> nonMissingPvalVec_std, nonMissingPvalVec_c_std;
     double burden_p, burden_p_cond;
     for(unsigned int i = 0; i < BURDEN_pval_Vec.size(); i++){
@@ -2042,6 +2049,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
     if(iswriteOutput){
       writeOutfile_BURDEN(regionName,
         BURDEN_AnnoName_Vec,
+        BURDEN_WeightName_Vec,
         BURDEN_maxMAFName_Vec,
         BURDEN_pval_Vec,
         BURDEN_Beta_Vec,
@@ -2058,6 +2066,7 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
         cctpval_cond,
         q_anno,
         q_maf,
+        q_weight,
         isCondition,
         t_traitType);
     }else{
@@ -2843,82 +2852,90 @@ void set_varianceRatio(double MAC, bool isSingleVarianceRatio){
 
 
 
-
 void writeOutfile_BURDEN(std::string regionName,
-			std::vector<std::string>  & BURDEN_AnnoName_Vec,
-			std::vector<std::string> & BURDEN_maxMAFName_Vec,
-			std::vector<std::string> & BURDEN_pval_Vec,
-			std::vector<double> & BURDEN_Beta_Vec,
-			std::vector<double> & BURDEN_seBeta_Vec,
-			std::vector<std::string> & BURDEN_pval_cVec,
-			std::vector<double> & BURDEN_Beta_cVec,
-			std::vector<double> & BURDEN_seBeta_cVec,
-			arma::vec & MAC_GroupVec,
-			arma::vec & MACCase_GroupVec,
-			arma::vec & MACControl_GroupVec,
-			arma::vec & NumRare_GroupVec,
-			arma::vec & NumUltraRare_GroupVec,
-			double cctpval,
-			double cctpval_cond,
-			unsigned int q_anno,
-			unsigned int q_maf,
-			bool isCondition,
-			std::string t_traitType){
-     unsigned int i;
-     for(unsigned int j = 0; j < q_anno; j++){
-       for(unsigned int m = 0; m < q_maf; m++){
-           i = j*q_maf+m;
-	   if(BURDEN_pval_Vec.at(i) != "NA"){
-           OutFile << regionName;
-           OutFile << "\t";
-           OutFile << BURDEN_AnnoName_Vec.at(i);
-           OutFile << "\t";
-           OutFile << BURDEN_maxMAFName_Vec.at(i);
-           OutFile << "\t";
-           OutFile << BURDEN_pval_Vec.at(i);
-           OutFile << "\t";
-           OutFile << BURDEN_Beta_Vec.at(i);
-           OutFile << "\t";
-           OutFile << BURDEN_seBeta_Vec.at(i);
-           OutFile << "\t";
-           if(isCondition){
-               OutFile << BURDEN_pval_cVec.at(i);
-               OutFile << "\t";
-               OutFile << BURDEN_Beta_cVec.at(i);
-               OutFile << "\t";
-               OutFile << BURDEN_seBeta_cVec.at(i);
-               OutFile << "\t";
-	   }
-	   OutFile << MAC_GroupVec(i);
-           OutFile << "\t";
-           if(t_traitType == "binary" || t_traitType == "survival"){
-               OutFile << MACCase_GroupVec(i);
-               OutFile << "\t";
-               OutFile << MACControl_GroupVec(i);
-               OutFile << "\t";
-           }
-           OutFile << NumRare_GroupVec(i);
-           OutFile << "\t";
-           OutFile << NumUltraRare_GroupVec(i);
-           OutFile << "\n";
-	}
-     }
-   }  
-     OutFile << regionName;
-     OutFile << "\tCauchy\tNA\t";
-     OutFile << cctpval;
-     OutFile << "\tNA\tNA\t";	
-     if(isCondition){
-	OutFile << cctpval_cond;
-	OutFile << "\tNA\tNA\t";
-     }
-     OutFile << "NA\t";
-     if(t_traitType == "binary" || t_traitType == "survival"){
+            std::vector<std::string>  & BURDEN_AnnoName_Vec,
+            std::vector<std::string> & BURDEN_WeightName_Vec,
+            std::vector<std::string> & BURDEN_maxMAFName_Vec,
+            std::vector<std::string> & BURDEN_pval_Vec,
+            std::vector<double> & BURDEN_Beta_Vec,
+            std::vector<double> & BURDEN_seBeta_Vec,
+            std::vector<std::string> & BURDEN_pval_cVec,
+            std::vector<double> & BURDEN_Beta_cVec,
+            std::vector<double> & BURDEN_seBeta_cVec,
+            arma::vec & MAC_GroupVec,
+            arma::vec & MACCase_GroupVec,
+            arma::vec & MACControl_GroupVec,
+            arma::vec & NumRare_GroupVec,
+            arma::vec & NumUltraRare_GroupVec,
+            double cctpval,
+            double cctpval_cond,
+            unsigned int q_anno,
+            unsigned int q_maf,
+            unsigned int q_weight,      // <-- ADD THIS
+            bool isCondition,
+            std::string t_traitType){
+
+    unsigned int jmr;
+    for(unsigned int j = 0; j < q_anno; j++){
+        for(unsigned int m = 0; m < q_maf; m++){
+            for(unsigned int r = 0; r < q_weight; r++){   // <-- ADD THIS LOOP
+                jmr = j*q_maf*q_weight + m*q_weight + r;  // <-- MATCH jmr INDEXING
+                if(BURDEN_pval_Vec.at(jmr) != "NA"){
+                    OutFile << regionName;
+                    OutFile << "\t";
+                    OutFile << BURDEN_AnnoName_Vec.at(jmr);
+                    OutFile << "\t";
+                    OutFile << BURDEN_WeightName_Vec.at(jmr);  // <-- ADD THIS
+                    OutFile << "\t";
+                    OutFile << BURDEN_maxMAFName_Vec.at(jmr);
+                    OutFile << "\t";
+                    OutFile << BURDEN_pval_Vec.at(jmr);
+                    OutFile << "\t";
+                    OutFile << BURDEN_Beta_Vec.at(jmr);
+                    OutFile << "\t";
+                    OutFile << BURDEN_seBeta_Vec.at(jmr);
+                    OutFile << "\t";
+                    if(isCondition){
+                        OutFile << BURDEN_pval_cVec.at(jmr);
+                        OutFile << "\t";
+                        OutFile << BURDEN_Beta_cVec.at(jmr);
+                        OutFile << "\t";
+                        OutFile << BURDEN_seBeta_cVec.at(jmr);
+                        OutFile << "\t";
+                    }
+                    OutFile << MAC_GroupVec(jmr);
+                    OutFile << "\t";
+                    if(t_traitType == "binary" || t_traitType == "survival"){
+                        OutFile << MACCase_GroupVec(jmr);
+                        OutFile << "\t";
+                        OutFile << MACControl_GroupVec(jmr);
+                        OutFile << "\t";
+                    }
+                    OutFile << NumRare_GroupVec(jmr);
+                    OutFile << "\t";
+                    OutFile << NumUltraRare_GroupVec(jmr);
+                    OutFile << "\n";
+                }
+            } // r
+        } // m
+    } // j
+
+    // Cauchy combination row (unchanged)
+    OutFile << regionName;
+    OutFile << "\tCauchy\tNA\t";
+    OutFile << cctpval;
+    OutFile << "\tNA\tNA\t";
+    if(isCondition){
+        OutFile << cctpval_cond;
+        OutFile << "\tNA\tNA\t";
+    }
+    OutFile << "NA\t";
+    if(t_traitType == "binary" || t_traitType == "survival"){
         OutFile << "NA\t";
         OutFile << "NA\t";
-     }
-     OutFile << "NA\t";
-     OutFile << "NA\n";	
+    }
+    OutFile << "NA\t";
+    OutFile << "NA\n";
 }
 
 

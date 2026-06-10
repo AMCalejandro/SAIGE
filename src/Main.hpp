@@ -316,6 +316,7 @@ void set_flagSparseGRM_cur_SAIGE_org();
 
 void writeOutfile_BURDEN(std::string regionName,
                         std::vector<std::string>  & BURDEN_AnnoName_Vec,
+                        std::vector<std::string>  & BURDEN_WeightName_Vec,
                         std::vector<std::string> & BURDEN_maxMAFName_Vec,
                         std::vector<std::string> & BURDEN_pval_Vec,
                         std::vector<double> & BURDEN_Beta_Vec,
@@ -332,6 +333,7 @@ void writeOutfile_BURDEN(std::string regionName,
                         double cctpval_cond,
                         unsigned int q_anno,
                         unsigned int q_maf,
+                        unsigned int q_weight,
                         bool isCondition,
                         std::string t_traitType);
 
