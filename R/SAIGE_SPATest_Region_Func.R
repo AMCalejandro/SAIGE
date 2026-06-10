@@ -460,6 +460,39 @@ get_SKAT_pvalue_Burden_SKAT_ACATV = function(Score, Phi, Pval, Weight){
 }
 
 
+# get_SKAT_pvalue_Burden_SKAT_ACATV = function(Score, Phi, Pval, Weight){
+
+#     # BURDEN
+#     out_BURDEN_List = try(SKAT:::Met_SKAT_Get_Pvalue(Score = Score,
+#                                                      Phi = Phi,
+#                                                      r.corr = 1,
+#                                                      Score.Resampling = NULL), silent = TRUE)
+
+#     if(class(out_BURDEN_List) == "try-error"){
+#         Pvalue_BURDEN = NA
+#         error.code = 2
+#         BETA_BURDEN = NA
+#         SE_BURDEN = NA
+#     } else {
+#         Pvalue_BURDEN = out_BURDEN_List$p.value
+#         BETA_BURDEN = sum(Score) / (sum(diag(Phi)))
+#         error.code = 0
+#         SE_BURDEN = abs(BETA_BURDEN / qnorm(Pvalue_BURDEN) / 2)
+#     }
+
+#     # ACAT-V
+#     Pvalue_ACATV = get_CCT_pvalue(Pval, Weight)
+
+#     return(list(
+#         Pvalue_ACATV  = Pvalue_ACATV,
+#         Pvalue_Burden = Pvalue_BURDEN,
+#         BETA_Burden   = BETA_BURDEN,
+#         SE_Burden     = SE_BURDEN
+#     ))
+# }
+
+
+
 get_CCT_pvalue = function(pvalue, weights=NULL){
    pvals = pvalue
    notna = which(!is.na(pvals))
