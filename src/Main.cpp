@@ -2871,21 +2871,21 @@ void writeOutfile_BURDEN(std::string regionName,
             double cctpval_cond,
             unsigned int q_anno,
             unsigned int q_maf,
-            unsigned int q_weight,      // <-- ADD THIS
+            unsigned int q_weight,
             bool isCondition,
             std::string t_traitType){
 
     unsigned int jmr;
     for(unsigned int j = 0; j < q_anno; j++){
         for(unsigned int m = 0; m < q_maf; m++){
-            for(unsigned int r = 0; r < q_weight; r++){   // <-- ADD THIS LOOP
-                jmr = j*q_maf*q_weight + m*q_weight + r;  // <-- MATCH jmr INDEXING
+            for(unsigned int r = 0; r < q_weight; r++){
+                jmr = j*q_maf*q_weight + m*q_weight + r;
                 if(BURDEN_pval_Vec.at(jmr) != "NA"){
                     OutFile << regionName;
                     OutFile << "\t";
                     OutFile << BURDEN_AnnoName_Vec.at(jmr);
                     OutFile << "\t";
-                    OutFile << BURDEN_WeightName_Vec.at(jmr);  // <-- ADD THIS
+                    OutFile << BURDEN_WeightName_Vec.at(jmr);
                     OutFile << "\t";
                     OutFile << BURDEN_maxMAFName_Vec.at(jmr);
                     OutFile << "\t";

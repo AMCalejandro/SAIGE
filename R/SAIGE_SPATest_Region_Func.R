@@ -76,14 +76,15 @@ checkGroupFile <- function(groupFile) {
   Check_File_Exist(groupFile, "RegionFile")
   
   gf = file(groupFile, "r")
-  line = 0  #initialize before use
+  line = 0
   
   marker_group_line = readLines(gf, n = 1); line = line + 1
   marker_group_line = readLines(gf, n = 1); line = line + 1
-  is_weight_included = FALSE
+  is_weight_included  = FALSE
   a = 2
   marker_group_line = readLines(gf, n = 1); line = line + 1
   numberofWeightlists = 0
+  weightname = NULL  # <-- moved here so it's always defined regardless of file structure
   
   if (length(marker_group_line) == 1) {
     marker_group_line_list = strsplit(marker_group_line, split="[\ \t]+")[[1]]
@@ -93,7 +94,6 @@ checkGroupFile <- function(groupFile) {
     }
     geneID = marker_group_line_list[1]
     type   = marker_group_line_list[2]
-    weightname = NULL
     
     if (type == "weight") {
       is_weight_included  = TRUE
@@ -110,17 +110,14 @@ checkGroupFile <- function(groupFile) {
         is_weight_included  = TRUE
         numberofWeightlists = numberofWeightlists + 1
         a = 3
-        weightname = c(weightname, parts[2])  # correct index
+        weightname = c(weightname, parts[2])
         
         isweight = TRUE
         while (isweight) {
           marker_group_line = readLines(gf, n = 1)
           line = line + 1
           
-          # if (length(marker_group_line) == 0) {
-          #   stop("Error, group file has empty lines\n")
-          # }
-          if (length(marker_group_line) == 0) { # Condition above does not handle the last weight line well and leads to error (tested on a file case with a single region var,anno,weight)
+          if (length(marker_group_line) == 0) {
             isweight = FALSE
             break
           }
@@ -135,22 +132,23 @@ checkGroupFile <- function(groupFile) {
           type_new   = marker_group_line_list[2]
           
           if (geneID_new != geneID) {
-            isweight = FALSE  # exit the loop !!!!
+            isweight = FALSE
             break
           } else {
-            parts_new = unlist(strsplit(type_new, split="[,:]"))  # FIX #2: same split fix
+            parts_new = unlist(strsplit(type_new, split="[,:]"))
             if (parts_new[1] != "weight") {
-              isweight = FALSE  # exit if next line isn't a weight
+              isweight = FALSE
             } else {
               numberofWeightlists = numberofWeightlists + 1
               a = a + 1
-              weightname = c(weightname, parts_new[2])  # correct index
+              weightname = c(weightname, parts_new[2])
             }
           }
         }
         
       } else {
-        if (typename != "var") {
+        # typename == "anno" or "var" — no weights, a stays 2
+        if (typename != "anno" && typename != "var") {
           stop("Error, group file line:", line, ". This line should have a region name or a weight\n")
         }
       }
@@ -160,7 +158,7 @@ checkGroupFile <- function(groupFile) {
   close(gf)
   
   # --- Second pass: validate all regions ---
-  gf = file(groupFile, "r")
+  gf      = file(groupFile, "r")
   line    = 0
   nregion = 0
   
@@ -206,17 +204,16 @@ checkGroupFile <- function(groupFile) {
            " is not equal to the length of marker IDs\n")
     }
     
-    # weight lines
+    # weight lines — seq(3, a) produces integer(0) when a=2, so loop is safely skipped
     if (is_weight_included) {
-      for (i in 3:a) {
+      for (i in seq(3, a)) {
         marker_group_line_list = strsplit(marker_group_line[i], split="[\ \t]+")[[1]]
         line = line + 1
         if (length(marker_group_line_list) < 3) {
           stop("Error, group file line:", line, " is incomplete.\n")
         }
-        geneID = marker_group_line_list[1]
-        type0  = marker_group_line_list[2]
-        # index [1] to get the prefix ("weight"), not the name
+        geneID      = marker_group_line_list[1]
+        type0       = marker_group_line_list[2]
         type_prefix = unlist(strsplit(type0, split="[,:]"))[1]
         if (type_prefix != "weight") {
           stop("Error! No weight is specified for ", geneID, "\n")
@@ -234,13 +231,15 @@ checkGroupFile <- function(groupFile) {
   }
   
   close(gf)
+  
   return(list(
-    nRegions           = nregion,
-    is_weight_included = is_weight_included,
+    nRegions            = nregion,
+    is_weight_included  = is_weight_included,
     numberofWeightlists = numberofWeightlists,
-    nameofWeightlists  = weightname
+    nameofWeightlists   = weightname
   ))
 }
+
 
 SPA_ER_kernel_related_Phiadj_fast_new<-function(p.new, Score, Phi, p.value_burden, regionTestType){ 
 	p.m = length(Score)
