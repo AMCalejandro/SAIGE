@@ -1087,6 +1087,8 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
     q_weight = q_weight + 1;
   }
   arma::vec w0_vec(q_weight);
+
+  std::vector<std::string> weightStringVec(t_weightlistvec.begin(), t_weightlistvec.begin() + q_weight);
   
   Rcpp::Rcout << "q_weight_customize=" << q_weight_customize 
             << " q_weight_beta=" << q_weight_beta
