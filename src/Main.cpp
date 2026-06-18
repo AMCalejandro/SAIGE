@@ -1518,9 +1518,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
                   jmr = j*q_maf*q_weight + m*q_weight + r;
                   annoMAFIndicatorVec(jmr) = 2;
                   w0 = w0_vec(r);
-                  if(q_weight_beta > 0 && r >= q_weight_customize){
-                    w0 = 1;
-                  }
                   for(unsigned int k = 0; k < nNonZero; k++){
                     genoURMat(indexNonZeroVec_arma(k), jmr) = std::max(genoURMat(indexNonZeroVec_arma(k), jmr) , w0 * (GVec(indexNonZeroVec_arma(k)))); // CHECK
                     // genoURMat_noweights(indexNonZeroVec_arma(k), jm) = std::max(genoURMat_noweights(indexNonZeroVec_arma(k), jm) , (GVec(indexNonZeroVec_arma(k))));
@@ -1605,9 +1602,10 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             bool flip = false;
             std::string info = "UR";	
             double MAF = std::min(altFreq, 1 - altFreq);
-            double w0 = w0_vec(r);
+            // double w0 = w0_vec(r);
+            double w0 = 1;  // custom weights already applied in genoURMat | w0_vec stores the last i marker processed to not meaningful at UR collapsed loop
             double MAC = MAF * 2 * t_n * (1 - missingRate);
-          std::vector<uint32_t> indexForMissing;
+            std::vector<uint32_t> indexForMissing;
             flip = imputeGenoAndFlip(genoURVec, altFreq, altCounts, indexForMissing, g_impute_method, g_dosage_zerod_cutoff, g_dosage_zerod_MAC_cutoff, MAC, indexZeroVec, indexNonZeroVec);
             for(unsigned int k = 0; k < indexForNonZero.n_elem; k++){
               genoSumMat(indexForNonZero(k), jmr) = genoSumMat(indexForNonZero(k), jmr) + genoURVec(indexForNonZero(k)) * w0;\
@@ -2126,6 +2124,9 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   int numofUR = q_anno_maf_weight;
   int numofUR0;
   int mFirth = 0;
+  arma::vec weightMeanUR_GroupVec = weightSumUR_GroupVec / 
+    arma::max(NumUltraRare_GroupVec, arma::ones(q_anno_maf_weight));  
+  
   if(t_isSingleinGroupTest){
     // OutList.push_back(pvalVec_val, "pvalVec");
     OutList.push_back(pvalVec, "pvalVec");
@@ -2223,6 +2224,8 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
 
   OutList.push_back(NumRare_GroupVec, "NumRare_GroupVec");
   OutList.push_back(NumUltraRare_GroupVec, "NumUltraRare_GroupVec");
+  OutList.push_back(weightMaxUR_GroupVec,  "weightMaxUR_GroupVec");
+  OutList.push_back(weightMeanUR_GroupVec, "weightMeanUR_GroupVec");
 
   if(t_regionTestType != "BURDEN" || t_isOutputMarkerList){
     OutList.push_back(annoMAFIndicatorMat, "annoMAFIndicatorMat");
