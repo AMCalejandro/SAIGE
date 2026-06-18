@@ -1602,7 +1602,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
             bool flip = false;
             std::string info = "UR";	
             double MAF = std::min(altFreq, 1 - altFreq);
-            // double w0 = w0_vec(r);
             double w0 = 1;  // custom weights already applied in genoURMat | w0_vec stores the last i marker processed to not meaningful at UR collapsed loop
             double MAC = MAF * 2 * t_n * (1 - missingRate);
             std::vector<uint32_t> indexForMissing;
@@ -2124,9 +2123,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
   int numofUR = q_anno_maf_weight;
   int numofUR0;
   int mFirth = 0;
-  arma::vec weightMeanUR_GroupVec = weightSumUR_GroupVec / 
-    arma::max(NumUltraRare_GroupVec, arma::ones(q_anno_maf_weight));  
-  
   if(t_isSingleinGroupTest){
     // OutList.push_back(pvalVec_val, "pvalVec");
     OutList.push_back(pvalVec, "pvalVec");
@@ -2224,8 +2220,6 @@ Rcpp::List mainRegionInCPP(std::string t_genoType,     // "PLINK", "PGEN", "BGEN
 
   OutList.push_back(NumRare_GroupVec, "NumRare_GroupVec");
   OutList.push_back(NumUltraRare_GroupVec, "NumUltraRare_GroupVec");
-  OutList.push_back(weightMaxUR_GroupVec,  "weightMaxUR_GroupVec");
-  OutList.push_back(weightMeanUR_GroupVec, "weightMeanUR_GroupVec");
 
   if(t_regionTestType != "BURDEN" || t_isOutputMarkerList){
     OutList.push_back(annoMAFIndicatorMat, "annoMAFIndicatorMat");
@@ -2551,7 +2545,7 @@ bool openOutfile(std::string t_traitType, bool isappend){
 	OutFile.open(g_outputFilePrefixGroup.c_str());
 	isopen = OutFile.is_open();
 	if(isopen){
-		OutFile << "Region\tGroup\tmax_MAF\tPvalue_Burden\tBETA_Burden\tSE_Burden\t";
+		OutFile << "Region\tGroup\tWeight\tmax_MAF\tPvalue_Burden\tBETA_Burden\tSE_Burden\t";
 		if(ptr_gSAIGEobj->m_isCondition){
 			OutFile << "Pvalue_Burden_c\tBeta_Burden_c\tseBeta_Burden_c\t";
 		}
@@ -2927,7 +2921,7 @@ void writeOutfile_BURDEN(std::string regionName,
 
     // Cauchy combination row (unchanged)
     OutFile << regionName;
-    OutFile << "\tCauchy\tNA\t";
+    OutFile << "\tCauchy\tNA\tNA\t";
     OutFile << cctpval;
     OutFile << "\tNA\tNA\t";
     if(isCondition){
